@@ -1,0 +1,274 @@
+.wrap {
+  display: flex;
+  align-items: center;
+  gap: 0.15rem;
+  width: 100%;
+  min-width: 0;
+}
+
+.ratioInput {
+  width: auto;
+  min-width: 0;
+  flex: 1 1 0;
+  height: 26px;
+  padding: 0.2rem 0.35rem;
+  font-size: 0.75rem;
+  border: 1px solid #ddd;
+  border-radius: 6px;
+  text-align: center;
+  box-sizing: border-box;
+}
+
+.ratioInputUa { background: #fef08a; border-color: #eab308; }
+.ratioInputSuper { background: #dcfce7; border-color: #47c977; }
+.ratioInputMedium { background: #47c977; border-color: #15803d; color: #fff; }
+.ratioInputLast { background: #166534; border-color: #14532d; color: #fff; }
+.ratioInputPriceTop { background: #ede9fe; border-color: #c4b5fd; }
+.ratioInputPriceMid { background: #8b5cf6; border-color: #7c3aed; color: #fff; }
+.ratioInputPriceNone { background: #581c87; border-color: #4c1d95; color: #fff; }
+.ratioInputFast { background: #fecaca; border-color: #fca5a5; }
+.ratioInputStopped { background: #6b7280; border-color: #4b5563; color: #fff; }
+.ratioInputGone { background: #fef9c3; border-color: #fde047; }
+.ratioInputOtherTrades { background: #dbeafe; border-color: #93c5fd; }
+.ratioInputBadReviews { background: #ef4444; border-color: #dc2626; color: #fff; }
+.ratioInputCarry { background: #ec4899; border-color: #db2777; color: #fff; }
+
+.ratioInput:focus {
+  outline: none;
+  border-color: #646cff;
+}
+
+.ratioInput:read-only {
+  background: #f9f9f9;
+  cursor: default;
+}
+
+.ratioInputUa:read-only { background: #fef08a; }
+.ratioInputSuper:read-only { background: #dcfce7; }
+.ratioInputMedium:read-only { background: #22c55e; color: #fff; }
+.ratioInputLast:read-only { background: #166534; color: #fff; }
+.ratioInputPriceTop:read-only { background: #ede9fe; }
+.ratioInputPriceMid:read-only { background: #8b5cf6; color: #fff; }
+.ratioInputPriceNone:read-only { background: #581c87; color: #fff; }
+.ratioInputFast:read-only { background: #fecaca; }
+.ratioInputStopped:read-only { background: #6b7280; color: #fff; }
+.ratioInputGone:read-only { background: #fef9c3; }
+.ratioInputOtherTrades:read-only { background: #dbeafe; }
+.ratioInputBadReviews:read-only { background: #ef4444; color: #fff; }
+.ratioInputCarry:read-only { background: #ec4899; color: #fff; }
+
+.ratioInput::placeholder {
+  color: #999;
+}
+
+.bubbleBtn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  padding: 0;
+  border: none;
+  border-radius: 6px;
+  background: #e3f2fd;
+  color: #1565c0;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+
+.bubbleBtn:hover {
+  background: #bbdefb;
+}
+
+.bubbleBtnHasNote {
+  background: #fff9c4;
+  color: #f57f17;
+}
+
+.bubbleBtnHasNote:hover {
+  background: #fff59d;
+}
+
+.colorPickerWrap {
+  position: relative;
+  display: flex;
+  align-items: center;
+  flex-shrink: 0;
+}
+
+.currentColorBtn {
+  width: 14px;
+  height: 14px;
+  border: 1px solid #94a3b8;
+  border-radius: 999px;
+  padding: 0;
+  cursor: pointer;
+}
+
+.currentColorBtnEmpty {
+  background: #ffffff;
+}
+
+.colorPalette {
+  z-index: 40;
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 4px;
+  width: 166px;
+  padding: 6px;
+  border: 1px solid #cbd5e1;
+  border-radius: 10px;
+  background: #fff;
+  box-shadow: 0 8px 22px rgba(15, 23, 42, 0.18);
+}
+
+.colorPaletteFloating {
+  position: fixed;
+}
+
+.colorTagBtn {
+  width: 12px;
+  height: 12px;
+  border: 1px solid #cbd5e1;
+  border-radius: 999px;
+  padding: 0;
+  cursor: pointer;
+}
+
+.colorTagUa { background: #fef08a; }
+.colorTagSuper { background: #dcfce7; }
+.colorTagMedium { background: #22c55e; }
+.colorTagLast { background: #166534; }
+.colorTagPriceTop { background: #ede9fe; }
+.colorTagPriceMid { background: #8b5cf6; }
+.colorTagPriceNone { background: #581c87; }
+.colorTagFast { background: #fecaca; }
+.colorTagStopped { background: #6b7280; }
+.colorTagGone { background: #fef9c3; }
+.colorTagOtherTrades { background: #dbeafe; }
+.colorTagBadReviews { background: #ef4444; }
+.colorTagCarry { background: #ec4899; }
+
+.colorTagBtnActive {
+  box-shadow: 0 0 0 2px rgba(15, 23, 42, 0.35);
+}
+
+.colorClearBtn {
+  width: 14px;
+  height: 14px;
+  border: 1px solid #cbd5e1;
+  background: #fff;
+  color: #6b7280;
+  border-radius: 999px;
+  padding: 0;
+  font-size: 10px;
+  line-height: 1;
+  cursor: pointer;
+}
+
+
+.modalOverlay {
+  position: fixed;
+  inset: 0;
+  z-index: 100;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0, 0, 0, 0.3);
+}
+
+.modal {
+  background: #fff;
+  border-radius: 10px;
+  padding: 1rem;
+  min-width: 220px;
+  max-width: 320px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.2);
+  position: relative;
+}
+
+.modalContent {
+  font-size: 0.9rem;
+  line-height: 1.4;
+  white-space: pre-wrap;
+  word-break: break-word;
+  padding-right: 2rem;
+}
+
+.modalPlaceholder {
+  color: #999;
+}
+
+.modalTextarea {
+  width: 100%;
+  min-height: 80px;
+  padding: 0.5rem;
+  font-size: 0.9rem;
+  font-family: inherit;
+  border: 1px solid #ccc;
+  border-radius: 8px;
+  resize: vertical;
+  box-sizing: border-box;
+}
+
+.modalTextarea:focus {
+  outline: none;
+  border-color: #646cff;
+}
+
+.modalActions {
+  display: flex;
+  gap: 0.5rem;
+  margin-top: 0.75rem;
+  justify-content: flex-end;
+}
+
+.modalBtn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  border: none;
+  border-radius: 8px;
+  background: #4caf50;
+  color: #fff;
+  cursor: pointer;
+}
+
+.modalBtn:hover {
+  background: #43a047;
+}
+
+.modalBtnCancel {
+  background: #e0e0e0;
+  color: #333;
+}
+
+.modalBtnCancel:hover {
+  background: #d0d0d0;
+}
+
+.editBtn {
+  position: absolute;
+  top: 0.75rem;
+  right: 0.75rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  border: 1px solid #ddd;
+  border-radius: 8px;
+  background: #f5f5f5;
+  color: #555;
+  cursor: pointer;
+}
+
+.editBtn:hover {
+  background: #e8e8e8;
+  border-color: #ccc;
+  color: #333;
+}

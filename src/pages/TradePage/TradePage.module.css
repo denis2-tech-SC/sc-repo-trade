@@ -1,0 +1,1274 @@
+.root {
+  min-height: 100vh;
+  padding: 1.5rem;
+  background-color: #f5f5f5;
+  font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  overflow-x: auto;
+  overflow-y: auto;
+}
+
+.header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  margin: 0 1.5rem 1rem;
+  flex-wrap: wrap;
+}
+
+.categoryTabs {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  flex-wrap: wrap;
+}
+
+.categoryTabBtn {
+  border: 1px solid #d1d5db;
+  background: #fff;
+  color: #374151;
+  border-radius: 10px;
+  padding: 0.55rem 0.85rem;
+  min-height: 38px;
+  min-width: 126px;
+  font-size: 0.84rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.categoryTabBtn:hover {
+  border-color: #9ca3af;
+}
+
+.categoryTabBtnActive {
+  border-color: #4f46e5;
+  background: #4f46e5;
+  color: #fff;
+}
+
+.colorLegendBtn {
+  border: 1px solid #0ea5e9;
+  background: #e0f2fe;
+  color: #0c4a6e;
+  border-radius: 999px;
+  width: 24px;
+  height: 24px;
+  padding: 0;
+  font-size: 0.82rem;
+  font-weight: 800;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.colorLegendBtn:hover {
+  background: #bae6fd;
+}
+
+.zoomControls {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  margin-left: 0.2rem;
+}
+
+.zoomBtn {
+  border: 1px solid #d1d5db;
+  background: #fff;
+  color: #374151;
+  border-radius: 10px;
+  min-width: 54px;
+  min-height: 34px;
+  padding: 0.35rem 0.45rem;
+  font-size: 0.78rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.zoomBtn:hover {
+  border-color: #9ca3af;
+}
+
+.zoomBtnActive {
+  border-color: #4f46e5;
+  background: #4f46e5;
+  color: #fff;
+}
+
+.editModeBtn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.5rem 1rem;
+  font-size: 0.9rem;
+  font-weight: 500;
+  border: 1px solid #ccc;
+  border-radius: 8px;
+  background: #fff;
+  color: #555;
+  cursor: pointer;
+}
+
+.editModeBtn:hover {
+  border-color: #646cff;
+  color: #646cff;
+}
+
+.editModeActive {
+  border-color: #646cff;
+  background: #646cff;
+  color: #fff;
+}
+
+.editModeActive:hover {
+  background: #535bf2;
+  border-color: #535bf2;
+  color: #fff;
+}
+
+.mainLayout {
+  margin: 0;
+  padding: 0 1.5rem;
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  align-items: flex-start;
+  width: max-content;
+  min-width: 100%;
+}
+
+.separator {
+  width: 100%;
+  height: 1px;
+  background: #e0e0e0;
+  margin: 0.25rem 0;
+}
+
+/* --- Блок "Я даю" --- */
+.giveSection {
+  background: #fff;
+  border-radius: 12px;
+  padding: 1rem;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+  position: relative;
+  width: fit-content;
+}
+
+.label {
+  display: block;
+  font-weight: 600;
+  font-size: 1rem;
+  margin-bottom: 0.75rem;
+  color: #333;
+}
+
+.selectWithPopup {
+  position: relative;
+}
+
+.selectRow {
+  display: flex;
+  gap: 0.35rem;
+  align-items: stretch;
+  position: relative;
+}
+
+/* Кастомный селект «Я даю» */
+.selectTrigger {
+  flex: 1;
+  min-width: 280px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  padding: 0.5rem 0.75rem 0.5rem 0.6rem;
+  font-size: 0.85rem;
+  border: 1px solid #ccc;
+  border-radius: 8px;
+  background: linear-gradient(180deg, #fafafa 0%, #fff 100%);
+  cursor: pointer;
+  text-align: left;
+  font-family: inherit;
+}
+
+.selectTrigger:hover {
+  border-color: #999;
+}
+
+.selectTrigger:focus {
+  outline: none;
+  border-color: #646cff;
+  box-shadow: 0 0 0 2px rgba(100, 108, 255, 0.2);
+}
+
+.selectValue {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.selectArrowOpen {
+  transform: rotate(180deg);
+}
+
+/* Выпадающий список — кастомный вид как у popup */
+.selectDropdown {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  min-width: 320px;
+  margin-top: 0.35rem;
+  background: linear-gradient(180deg, #fafafa 0%, #fff 100%);
+  border-radius: 12px;
+  padding: 0.5rem;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.12), 0 2px 8px rgba(0, 0, 0, 0.06);
+  border: 1px solid #e0e0e0;
+  z-index: 20;
+  max-height: 240px;
+  overflow-y: auto;
+}
+
+.selectOption {
+  display: block;
+  width: 100%;
+  padding: 0.5rem 0.6rem;
+  font-size: 0.85rem;
+  text-align: left;
+  border: none;
+  border-radius: 8px;
+  background: transparent;
+  cursor: pointer;
+  font-family: inherit;
+  color: #333;
+}
+
+.selectOption:hover {
+  background: #f0f0f0;
+}
+
+.selectOptionActive {
+  background: #e3f2fd;
+  color: #1565c0;
+}
+
+/* Строка пункта с иконками в режиме редактирования */
+.selectOptionRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.4rem;
+  border-radius: 8px;
+  margin-bottom: 0.15rem;
+}
+
+.selectOptionRow:last-child {
+  margin-bottom: 0;
+}
+
+.selectOptionRow:hover {
+  background: #f5f5f5;
+}
+
+.selectOptionRow .selectOption {
+  flex: 1;
+  min-width: 0;
+  margin: 0;
+}
+
+.selectOptionActions {
+  display: flex;
+  align-items: center;
+  gap: 0.2rem;
+  flex-shrink: 0;
+}
+
+.selectIconBtn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  padding: 0;
+  border: none;
+  border-radius: 6px;
+  background: transparent;
+  color: #666;
+  cursor: pointer;
+  flex-shrink: 0;
+}
+
+.selectIconBtn:hover {
+  background: #f0f0f0;
+  color: #333;
+}
+
+.selectIconBtnTrash {
+  color: #c62828;
+}
+
+.selectIconBtnTrash:hover {
+  background: #ffebee;
+  color: #c62828;
+}
+
+.selectOptionInput {
+  width: 100%;
+  padding: 0.25rem 0.4rem;
+  font-size: 0.85rem;
+  border: 1px solid #646cff;
+  border-radius: 6px;
+  font-family: inherit;
+  box-sizing: border-box;
+}
+
+.selectOptionInput:focus {
+  outline: none;
+  box-shadow: 0 0 0 2px rgba(100, 108, 255, 0.2);
+}
+
+.selectOptionEdit {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  width: 100%;
+}
+
+.selectOptionEdit .selectOptionInput {
+  flex: 1;
+  min-width: 0;
+}
+
+.selectIconBtnSave {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  border: none;
+  border-radius: 6px;
+  background: #4caf50;
+  color: #fff;
+  cursor: pointer;
+  flex-shrink: 0;
+}
+
+.selectIconBtnSave:hover {
+  background: #43a047;
+}
+
+.plusBtn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  padding: 0;
+  border: 1px solid #ccc;
+  border-radius: 8px;
+  background: #fff;
+  color: #555;
+  cursor: pointer;
+  flex-shrink: 0;
+}
+
+.plusBtn:hover {
+  border-color: #646cff;
+  color: #646cff;
+}
+
+/* Всплывающее окно — кастомный вид */
+.popupOverlay {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  right: 0;
+  margin-top: 0.5rem;
+  z-index: 10;
+}
+
+.popup {
+  background: linear-gradient(180deg, #fafafa 0%, #fff 100%);
+  border-radius: 12px;
+  padding: 1rem;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.12), 0 2px 8px rgba(0, 0, 0, 0.06);
+  border: 1px solid #e0e0e0;
+}
+
+.popupTitle {
+  font-size: 0.9rem;
+  font-weight: 700;
+  color: #333;
+  margin-bottom: 0.75rem;
+  padding-bottom: 0.5rem;
+  border-bottom: 2px solid #e0e0e0;
+}
+
+.popupListTitle {
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: #666;
+  margin: 0.75rem 0 0.4rem;
+}
+
+.popupList {
+  overflow: visible;
+}
+
+.addRow {
+  display: flex;
+  gap: 0.4rem;
+}
+
+.addInput {
+  flex: 1;
+  min-width: 0;
+  padding: 0.4rem 0.5rem;
+  font-size: 0.8rem;
+  border: 1px solid #ccc;
+  border-radius: 6px;
+}
+
+.addInput:focus {
+  outline: none;
+  border-color: #646cff;
+}
+
+.btn {
+  padding: 0.4rem 0.75rem;
+  font-size: 0.8rem;
+  font-weight: 500;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  background: #646cff;
+  color: #fff;
+  flex-shrink: 0;
+}
+
+.btn:hover {
+  background: #535bf2;
+}
+
+.btnSecondary {
+  background: #e0e0e0;
+  color: #333;
+}
+
+.btnSecondary:hover {
+  background: #d0d0d0;
+}
+
+.itemRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.4rem;
+  padding: 0.35rem 0;
+  font-size: 0.8rem;
+  border-bottom: 1px solid #eee;
+}
+
+.itemRow:last-child {
+  border-bottom: none;
+}
+
+.itemName {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.itemNameInput {
+  flex: 1;
+  min-width: 0;
+  padding: 0.25rem 0.4rem;
+  font-size: 0.8rem;
+  border: 1px solid #646cff;
+  border-radius: 4px;
+}
+
+.itemNameInput:focus {
+  outline: none;
+  box-shadow: 0 0 0 2px rgba(100, 108, 255, 0.2);
+}
+
+.itemActions {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+  flex-shrink: 0;
+}
+
+.iconBtn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  padding: 0;
+  border: none;
+  border-radius: 4px;
+  background: transparent;
+  color: #666;
+  cursor: pointer;
+}
+
+.iconBtn:hover {
+  background: #f0f0f0;
+  color: #333;
+}
+
+.iconBtnDanger:hover {
+  background: #ffebee;
+  color: #c62828;
+}
+
+.iconBtnTrash {
+  color: #c62828;
+}
+
+.iconBtnTrash:hover {
+  background: #ffebee;
+  color: #b71c1c;
+}
+
+/* --- Таблица пользователей под "Я даю" --- */
+.tableSection {
+  background: #fff;
+  border-radius: 8px;
+  padding: 0.8rem;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.06);
+  overflow: visible;
+  align-self: flex-start;
+  width: max-content;
+}
+
+.blockHeader {
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 0.6rem;
+  margin-bottom: 0.5rem;
+  padding: 0;
+  width: max-content;
+  flex-wrap: nowrap;
+}
+
+.blockTitle {
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: #333;
+  margin: 0;
+}
+
+.tableSubtitle {
+  font-size: 1.2rem;
+  font-weight: 800;
+  letter-spacing: 0.2px;
+  color: #1f2937;
+  margin: 0;
+  padding: 0;
+}
+
+.tableBlock {
+  background: #ffffff;
+  border: 1px solid #e5e7eb;
+  border-radius: 12px;
+  padding: 0.8rem;
+  margin-top: 0.8rem;
+  box-shadow: 0 4px 10px rgba(15, 23, 42, 0.06);
+  width: max-content;
+}
+
+.tableBlock:first-of-type {
+  margin-top: 0;
+}
+
+.tableHeaderActions {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+}
+
+.moveUserActions {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  min-height: 18px;
+}
+
+.moveUserBtn {
+  width: 18px;
+  height: 18px;
+  border: 1px solid #c7d2fe;
+  border-radius: 5px;
+  background: #eef2ff;
+  color: #3730a3;
+  font-size: 0.7rem;
+  font-weight: 700;
+  line-height: 1;
+  padding: 0;
+  cursor: pointer;
+}
+
+.moveUserBtn:hover:not(:disabled) {
+  background: #dbeafe;
+}
+
+.moveUserBtn:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.addUserBtn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.4rem 0.75rem;
+  font-size: 0.8rem;
+  font-weight: 500;
+  border: 1px solid #646cff;
+  border-radius: 8px;
+  background: #646cff;
+  color: #fff;
+  cursor: pointer;
+  font-family: inherit;
+}
+
+.addUserBtn:hover {
+  background: #535bf2;
+  border-color: #535bf2;
+}
+
+.nicknameCell {
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 0.25rem;
+  flex-wrap: nowrap;
+  width: 100%;
+  min-width: 0;
+  overflow: hidden;
+}
+
+.userHeaderPanel {
+  border-radius: 8px;
+  padding: 0.15rem 0.2rem;
+}
+
+.userHeaderTools {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.22rem;
+  min-height: 22px;
+  margin-top: 0.12rem;
+}
+
+.userHeaderToolsSpacer {
+  min-height: 22px;
+  margin-top: 0.12rem;
+}
+
+.nicknameLink {
+  display: block;
+  flex: 1 1 0;
+  width: 100%;
+  min-width: 0;
+  max-width: 100%;
+  color: #1565c0;
+  text-decoration: none;
+  font-weight: 700;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.nicknameLink:hover {
+  text-decoration: underline;
+}
+
+.nicknameEditBtn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  padding: 0;
+  border: none;
+  border-radius: 4px;
+  background: transparent;
+  color: #666;
+  cursor: pointer;
+  flex-shrink: 0;
+}
+
+.nicknameEditBtn:hover {
+  background: #f0f0f0;
+  color: #333;
+}
+
+.columnDeleteBtn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  padding: 0;
+  border: none;
+  border-radius: 4px;
+  background: transparent;
+  color: #c62828;
+  cursor: pointer;
+  flex-shrink: 0;
+}
+
+.columnDeleteBtn:hover {
+  background: #ffebee;
+  color: #b71c1c;
+}
+
+.headerColorPickerWrap {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.headerCurrentColorBtn {
+  width: 16px;
+  height: 16px;
+  border: 1px solid #94a3b8;
+  border-radius: 999px;
+  padding: 0;
+  cursor: pointer;
+}
+
+.headerCurrentColorBtnEmpty {
+  background: #fff;
+}
+
+.headerColorPalette {
+  position: absolute;
+  top: calc(100% + 4px);
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 120;
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 4px;
+  width: 166px;
+  padding: 6px;
+  border: 1px solid #cbd5e1;
+  border-radius: 10px;
+  background: #fff;
+  box-shadow: 0 8px 22px rgba(15, 23, 42, 0.18);
+}
+
+.headerColorTagBtn {
+  width: 12px;
+  height: 12px;
+  border: 1px solid #cbd5e1;
+  border-radius: 999px;
+  padding: 0;
+  cursor: pointer;
+}
+
+.headerColorClearBtn {
+  width: 14px;
+  height: 14px;
+  border: 1px solid #cbd5e1;
+  background: #fff;
+  color: #6b7280;
+  border-radius: 999px;
+  padding: 0;
+  font-size: 10px;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.placeholder {
+  color: #888;
+  font-size: 0.8rem;
+  padding: 1rem;
+  text-align: center;
+}
+
+.tableScrollWrap {
+  overflow: visible;
+}
+
+.usersTable {
+  width: max-content;
+  border-collapse: collapse;
+  font-size: 0.8rem;
+  table-layout: fixed;
+}
+
+.usersTable th,
+.usersTable td {
+  padding: 0;
+  vertical-align: middle;
+  border-bottom: 1px solid #f0f0f0;
+}
+
+.usersTable tbody tr {
+  height: 32px;
+}
+
+.usersTable tr:last-child td {
+  border-bottom: none;
+}
+
+.tableHeaderRow {
+  padding: 0 0 0.45rem !important;
+  border-bottom: none !important;
+  background: transparent;
+  text-align: left;
+  overflow: visible;
+}
+
+.tableHeaderLeftCell {
+  width: 300px;
+  min-width: 300px;
+  max-width: 300px;
+  padding: 0 0.5rem 0.45rem !important;
+  border-bottom: none !important;
+  background: transparent;
+  text-align: left;
+  vertical-align: top;
+}
+
+.tableHeaderStickySpacer {
+  padding: 0 0 0.45rem !important;
+  border-bottom: none !important;
+  background: transparent;
+  box-shadow: none;
+  position: static !important;
+  left: auto !important;
+  z-index: 1 !important;
+}
+
+.usersTable thead .stickyCol {
+  background: #fafafa;
+}
+
+.usersTable tbody .stickyCol {
+  background: #fff;
+}
+
+.stickyCol {
+  position: sticky;
+  left: 0;
+  z-index: 2;
+  width: 300px;
+  min-width: 300px;
+  max-width: 300px;
+  padding: 0.25rem 0.5rem !important;
+  box-shadow: 2px 0 4px rgba(0, 0, 0, 0.04);
+}
+
+.stickyHeaderCellContent {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  width: 100%;
+}
+
+.addUserBtnCompact {
+  width: 26px;
+  min-width: 26px;
+  height: 26px;
+  padding: 0;
+  border-radius: 999px;
+  justify-content: center;
+}
+
+.userTh {
+  min-width: 82px;
+  width: 82px;
+  max-width: 82px;
+  padding: 0.35rem 0.4rem !important;
+  text-align: center;
+  vertical-align: top;
+  background: #fafafa;
+  overflow: visible;
+  box-sizing: border-box;
+}
+
+.placeholderUserTh {
+  background: #f8fafc;
+  min-width: 82px;
+  width: 82px;
+  max-width: 82px;
+}
+
+.emptyUserPlaceholder {
+  color: #94a3b8;
+  font-size: 0.75rem;
+  font-weight: 700;
+  min-height: 30px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.2rem;
+  white-space: nowrap;
+}
+
+.headerColorUa { background: #fef08a; }
+.headerColorSuper { background: #dcfce7; }
+.headerColorMedium { background: #22c55e; color: #fff; }
+.headerColorLast { background: #166534; color: #fff; }
+.headerColorPriceTop { background: #ede9fe; }
+.headerColorPriceMid { background: #8b5cf6; color: #fff; }
+.headerColorPriceNone { background: #581c87; color: #fff; }
+.headerColorFast { background: #fecaca; }
+.headerColorStopped { background: #6b7280; color: #fff; }
+.headerColorGone { background: #fef9c3; }
+.headerColorOtherTrades { background: #dbeafe; }
+.headerColorBadReviews { background: #ef4444; color: #fff; }
+.headerColorCarry { background: #ec4899; color: #fff; }
+
+.ratioLabel {
+  font-size: 0.65rem;
+  color: #c62828;
+  margin-bottom: 0.15rem;
+}
+
+.nickname {
+  display: block;
+  flex: 1 1 0;
+  width: 100%;
+  min-width: 0;
+  max-width: 100%;
+  font-size: 0.8rem;
+  font-weight: 700;
+  color: #333;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  text-align: center;
+  line-height: 1.2;
+}
+
+.nicknameLinked {
+  background: #dbeafe;
+  color: #0f3e8a;
+  border-radius: 6px;
+  padding: 0.1rem 0.3rem;
+  box-sizing: border-box;
+  width: 100%;
+}
+
+.nicknameLinkedShade1 {
+  background: #dbeafe;
+}
+
+.nicknameLinkedShade2 {
+  background: #bfdbfe;
+}
+
+.nicknameLinkedShade3 {
+  background: #93c5fd;
+}
+
+.ratioTd {
+  min-width: 82px;
+  width: 82px;
+  max-width: 82px;
+  padding: 0.2rem !important;
+  text-align: center;
+  vertical-align: middle;
+  overflow: hidden;
+  box-sizing: border-box;
+}
+
+.placeholderRatioTd {
+  background: #f8fafc;
+  min-width: 82px;
+  width: 82px;
+  max-width: 82px;
+}
+
+.itemNameCell {
+  font-size: 0.9rem;
+  font-weight: 500;
+  padding: 0.25rem 0.35rem;
+  width: 100%;
+  min-height: 28px;
+  height: 28px;
+  display: flex;
+  align-items: center;
+  white-space: nowrap;
+  border-radius: 4px;
+  box-sizing: border-box;
+}
+
+.itemNameCellClickable {
+  cursor: pointer;
+}
+
+.highlightedItemRow td {
+  background: #fff9c4;
+}
+
+.highlightedItemStickyCell {
+  background: #fff59d !important;
+}
+
+.highlightedItemNameCell {
+  outline: 1px solid #f59e0b;
+  background: #fde68a;
+}
+
+.highlightedItemRatioCell {
+  background: #fffde7;
+}
+
+/* Стили для конкретных предметов */
+.itemPolarisBits {
+  color: #f51b1b;
+}
+
+.itemWikeloFavor {
+  color: #3bdbed;
+}
+
+.itemCarinite {
+  color: #cc1433;
+}
+
+.itemValakkarPearl {
+  background-color: #179c21;
+  color: #fff;
+  padding: 0.2rem 0.4rem;
+  border-radius: 4px;
+}
+
+.itemCompBoard {
+  color: #fff;
+  background-color: #e65100;
+  padding: 0.2rem 0.4rem;
+  border-radius: 4px;
+}
+
+
+
+.linkToTrade {
+  display: inline-block;
+  margin-top: 1rem;
+  color: #646cff;
+  text-decoration: none;
+  font-size: 0.9rem;
+}
+
+.linkToTrade:hover {
+  text-decoration: underline;
+}
+
+.floatingEditBtn {
+  position: fixed;
+  right: 18px;
+  bottom: 18px;
+  width: 62px;
+  height: 62px;
+  border: 2px solid #fb923c;
+  border-radius: 9999px;
+  background: linear-gradient(180deg, #fb923c 0%, #f97316 100%);
+  color: #fff;
+  box-shadow: 0 12px 26px rgba(249, 115, 22, 0.45);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  z-index: 60;
+}
+
+.floatingEditBtn:hover {
+  background: linear-gradient(180deg, #fdba74 0%, #fb923c 100%);
+}
+
+.floatingEditBtnActive {
+  background: linear-gradient(180deg, #6366f1 0%, #4f46e5 100%);
+  color: #fff;
+  border-color: #4f46e5;
+  box-shadow: 0 12px 26px rgba(79, 70, 229, 0.45);
+}
+
+.floatingEditBtnActive:hover {
+  background: #4338ca;
+}
+
+.userCreatePopupStack {
+  position: fixed;
+  top: 0;
+  right: 0;
+  z-index: 2000;
+  pointer-events: none;
+}
+
+.colorLegendOverlay {
+  position: fixed;
+  inset: 0;
+  z-index: 2100;
+  background: rgba(15, 23, 42, 0.35);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1rem;
+}
+
+.colorLegendModal {
+  width: min(920px, calc(100vw - 2rem));
+  background: #fff;
+  border-radius: 12px;
+  padding: 1rem;
+  box-shadow: 0 16px 40px rgba(15, 23, 42, 0.25);
+}
+
+.colorLegendTitle {
+  margin: 0 0 0.8rem;
+  font-size: 1rem;
+  color: #111827;
+}
+
+.colorLegendGrid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.8rem;
+  font-size: 0.82rem;
+  color: #1f2937;
+}
+
+.colorLegendGrid > div {
+  border: 1px solid #e5e7eb;
+  border-radius: 10px;
+  padding: 0.6rem;
+  background: #fafafa;
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+
+.colorLegendTag {
+  font-weight: 800;
+  border-radius: 8px;
+  padding: 0.28rem 0.45rem;
+  margin-bottom: 0.2rem;
+}
+
+.colorLegendSuper {
+  background: #dcfce7;
+  color: #14532d;
+}
+
+.colorLegendMedium {
+  background: #22c55e;
+  color: #ffffff;
+}
+
+.colorLegendLast {
+  background: #166534;
+  color: #ffffff;
+}
+
+.colorLegendUa {
+  background: #fef08a;
+  color: #713f12;
+}
+
+.colorLegendPriceTop {
+  background: #ede9fe;
+  color: #4c1d95;
+}
+
+.colorLegendPriceMid {
+  background: #8b5cf6;
+  color: #ffffff;
+}
+
+.colorLegendPriceNone {
+  background: #581c87;
+  color: #ffffff;
+}
+
+.colorLegendFast {
+  background: #fecaca;
+  color: #7f1d1d;
+}
+
+.colorLegendStopped {
+  background: #6b7280;
+  color: #ffffff;
+}
+
+.colorLegendGone {
+  background: #fef9c3;
+  color: #713f12;
+}
+
+.colorLegendOtherTrades {
+  background: #dbeafe;
+  color: #1e3a8a;
+}
+
+.colorLegendBadReviews {
+  background: #ef4444;
+  color: #ffffff;
+}
+
+.colorLegendCarry {
+  background: #ec4899;
+  color: #ffffff;
+}
+
+.userCreatePopup {
+  position: fixed;
+  min-width: 320px;
+  max-width: 420px;
+  color: #fff;
+  padding: 0.85rem 0.95rem 0.7rem;
+  border-radius: 12px;
+  font-size: 0.94rem;
+  font-weight: 700;
+  box-shadow: 0 12px 30px rgba(17, 24, 39, 0.35);
+  z-index: 2000;
+  overflow: hidden;
+}
+
+.userCreatePopupCreated {
+  background: linear-gradient(180deg, #16a34a 0%, #15803d 100%);
+}
+
+.userCreatePopupLinked {
+  background: linear-gradient(180deg, #2563eb 0%, #1d4ed8 100%);
+}
+
+.userCreatePopupExists {
+  background: linear-gradient(180deg, #ef4444 0%, #dc2626 100%);
+}
+
+.userCreatePopupProgress {
+  position: absolute;
+  left: 0;
+  bottom: 0;
+  height: 4px;
+  width: 100%;
+  background: rgba(255, 255, 255, 0.9);
+  transform-origin: left center;
+  animation: toastProgress 3s linear forwards;
+}
+
+@keyframes toastProgress {
+  from {
+    transform: scaleX(1);
+  }
+  to {
+    transform: scaleX(0);
+  }
+}

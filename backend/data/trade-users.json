@@ -1,0 +1,464 @@
+{
+  "users": [
+    {
+      "id": "u_nomorethanscars",
+      "nickname": "Nomorethanscars",
+      "discordNickname": "",
+      "accountLink": "",
+      "category": "main"
+    },
+    {
+      "id": "u_simsimhaeyoo",
+      "nickname": "simsimhaeyoo",
+      "discordNickname": "",
+      "accountLink": "",
+      "category": "main"
+    },
+    {
+      "id": "u_watermech",
+      "nickname": "watermech",
+      "discordNickname": "",
+      "accountLink": "",
+      "category": "main"
+    },
+    {
+      "id": "u_dudumight",
+      "nickname": "Dudumight",
+      "discordNickname": "ct7567.lupin",
+      "accountLink": "",
+      "category": "main"
+    },
+    {
+      "id": "u_violentsea",
+      "nickname": "violentsea",
+      "discordNickname": "",
+      "accountLink": "",
+      "category": "main"
+    },
+    {
+      "id": "u_mau_naabal",
+      "nickname": "mau_naabal",
+      "discordNickname": "deanecrofte",
+      "accountLink": "",
+      "category": "main"
+    },
+    {
+      "id": "u_pavelmak",
+      "nickname": "pavelmak",
+      "discordNickname": "",
+      "accountLink": "",
+      "category": "main"
+    },
+    {
+      "id": "u_gerbi",
+      "nickname": "gerbi",
+      "discordNickname": "aleksarkhangel5787",
+      "accountLink": "",
+      "category": "main"
+    },
+    {
+      "id": "u_grimwrath36",
+      "nickname": "Grimwrath36",
+      "discordNickname": "",
+      "accountLink": "",
+      "category": "main"
+    },
+    {
+      "id": "u_xscopez",
+      "nickname": "xScopez",
+      "discordNickname": "",
+      "accountLink": "",
+      "category": "main"
+    },
+    {
+      "id": "u_llillliiliilill",
+      "nickname": "llillliiliilill",
+      "discordNickname": "",
+      "accountLink": "",
+      "category": "main"
+    },
+    {
+      "id": "u_bogdand",
+      "nickname": "bogdand",
+      "discordNickname": "",
+      "accountLink": "",
+      "category": "main"
+    },
+    {
+      "id": "u_justmoki",
+      "nickname": "JustMokI",
+      "discordNickname": "",
+      "accountLink": "",
+      "category": "main"
+    },
+    {
+      "id": "u_nicolas02",
+      "nickname": "nicolas02",
+      "discordNickname": "",
+      "accountLink": "",
+      "category": "main"
+    },
+    {
+      "id": "u_jabbz01",
+      "nickname": "jabbz01",
+      "discordNickname": "",
+      "accountLink": "",
+      "category": "main"
+    },
+    {
+      "id": "u_leousa",
+      "nickname": "LEOUSA",
+      "discordNickname": "Bardo-1981/SgtNavs",
+      "accountLink": "",
+      "category": "main"
+    },
+    {
+      "id": "u_lillyslim",
+      "nickname": "lillyslim",
+      "discordNickname": "",
+      "accountLink": "",
+      "category": "main"
+    },
+    {
+      "id": "u_omaraydogdu",
+      "nickname": "omaraydogdu",
+      "discordNickname": "",
+      "accountLink": "",
+      "category": "main"
+    },
+    {
+      "id": "u_t2g",
+      "nickname": "T2G",
+      "discordNickname": "",
+      "accountLink": "",
+      "category": "main"
+    },
+    {
+      "id": "u_marretablack",
+      "nickname": "MARRETABLACK",
+      "discordNickname": "",
+      "accountLink": "https://uexcorp.space/@MARRETABLACK",
+      "category": "main"
+    },
+    {
+      "id": "seed_u_2",
+      "nickname": "test_user_2",
+      "discordNickname": "",
+      "accountLink": "",
+      "category": "main"
+    },
+    {
+      "id": "seed_u_3",
+      "nickname": "test_user_3",
+      "discordNickname": "",
+      "accountLink": "",
+      "category": "main"
+    },
+    {
+      "id": "seed_u_4",
+      "nickname": "test_user_4",
+      "discordNickname": "",
+      "accountLink": "",
+      "category": "main"
+    },
+    {
+      "id": "seed_u_5",
+      "nickname": "test_user_5",
+      "discordNickname": "",
+      "accountLink": "",
+      "category": "main"
+    },
+    {
+      "id": "seed_u_6",
+      "nickname": "test_user_6",
+      "discordNickname": "",
+      "accountLink": "",
+      "category": "main"
+    },
+    {
+      "id": "seed_u_7",
+      "nickname": "test_user_7",
+      "discordNickname": "",
+      "accountLink": "",
+      "category": "main"
+    },
+    {
+      "id": "seed_u_8",
+      "nickname": "test_user_8",
+      "discordNickname": "",
+      "accountLink": "",
+      "category": "main"
+    },
+    {
+      "id": "seed_u_9",
+      "nickname": "test_user_9",
+      "discordNickname": "",
+      "accountLink": "",
+      "category": "main"
+    },
+    {
+      "id": "seed_u_10",
+      "nickname": "test_user_10",
+      "discordNickname": "",
+      "accountLink": "",
+      "category": "main"
+    },
+    {
+      "id": "u1772847089691",
+      "nickname": "1",
+      "discordNickname": "",
+      "accountLink": "",
+      "category": "main"
+    },
+    {
+      "id": "u1772847091831",
+      "nickname": "2",
+      "discordNickname": "",
+      "accountLink": "",
+      "category": "main"
+    },
+    {
+      "id": "u1772847094301",
+      "nickname": "3",
+      "discordNickname": "",
+      "accountLink": "",
+      "category": "main"
+    }
+  ],
+  "tableUsers": {
+    "RCMBNT": [
+      "u_nomorethanscars",
+      "u_simsimhaeyoo",
+      "u_watermech",
+      "u_dudumight",
+      "u_violentsea",
+      "u_mau_naabal",
+      "u_pavelmak",
+      "u_gerbi",
+      "u_grimwrath36",
+      "u_xscopez",
+      "u_llillliiliilill",
+      "u_bogdand",
+      "u_justmoki",
+      "u_nicolas02",
+      "u_jabbz01",
+      "u_leousa",
+      "u_lillyslim",
+      "u_omaraydogdu",
+      "u_t2g",
+      "u_marretablack"
+    ],
+    "Valakkar fangs (APEX)": [
+      "seed_u_2",
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      "u_lillyslim",
+      null,
+      null,
+      "u_marretablack"
+    ],
+    "Carinite (Pure)": [
+      "seed_u_3"
+    ],
+    "APEX Pearl (Grade AAA) 🫧": [
+      "seed_u_4"
+    ],
+    "Polaris Bits": [
+      "seed_u_5"
+    ],
+    "Wikelo Favor": [
+      "seed_u_6"
+    ],
+    "DCHS-05 Comp-Board": [
+      "seed_u_7"
+    ],
+    "UEE 6th (Pristine) 🎖️": [
+      "seed_u_8"
+    ],
+    "ASD Drive": [
+      "seed_u_9"
+    ],
+    "Ace Helmet 🪖": [
+      "seed_u_10"
+    ]
+  },
+  "ratioOverrides": {
+    "RCMBNT": {
+      "u_nomorethanscars": {
+        "Carinite (Pure)": "1:1"
+      },
+      "u_simsimhaeyoo": {
+        "Carinite (Pure)": "2:1"
+      },
+      "u_watermech": {
+        "Wikelo Favor": "7:1"
+      },
+      "u_dudumight": {
+        "Irradiated Valakkar Fang (Apex) 🦷": "3:1"
+      },
+      "u_violentsea": {
+        "Polaris Bits": "3.5:1",
+        "Irradiated Valakkar Pearl (Grade AAA) 🫧": ""
+      },
+      "u_mau_naabal": {
+        "Polaris Bits": "2:1",
+        "Wikelo Favor": "7:1",
+        "Irradiated Valakkar Pearl (Grade AAA) 🫧": "1:1",
+        "Carinite (Pure)": "1:1"
+      },
+      "u_pavelmak": {
+        "Polaris Bits": "1:2",
+        "UEE 6th Platoon Medal (Pristine) 🎖️": "1:1",
+        "DCHS-05 Comp-Board": "1:1",
+        "Carinite (Pure)": "1:5",
+        "Irradiated Valakkar Pearl (Grade AAA) 🫧": "1:3"
+      },
+      "u_gerbi": {
+        "Wikelo Favor": "6:1",
+        "Irradiated Valakkar Pearl (Grade AAA) 🫧": "",
+        "Carinite (Pure)": ""
+      },
+      "u_grimwrath36": {
+        "Wikelo Favor": "2:1",
+        "Carinite (Pure)": ""
+      },
+      "u_llillliiliilill": {
+        "Polaris Bits": "",
+        "Carinite (Pure)": "1:1"
+      },
+      "u_bogdand": {
+        "UEE 6th Platoon Medal (Pristine) 🎖️": "+",
+        "Polaris Bits": "2:1",
+        "Irradiated Valakkar Pearl (Grade AAA) 🫧": "",
+        "Carinite (Pure)": "",
+        "Wikelo Favor": "5:1"
+      },
+      "u_justmoki": {
+        "Wikelo Favor": "",
+        "Polaris Bits": "2:1"
+      },
+      "u_nicolas02": {
+        "Polaris Bits": "",
+        "Irradiated Valakkar Pearl (Grade AAA) 🫧": "2:1"
+      },
+      "u_lillyslim": {
+        "UEE 6th Platoon Medal (Pristine) 🎖️": "",
+        "Irradiated Valakkar Pearl (Grade AAA) 🫧": "1:1"
+      },
+      "u_t2g": {
+        "UEE 6th Platoon Medal (Pristine) 🎖️": "",
+        "Ace Interceptor Helmet 🪖": "3:1"
+      },
+      "u_marretablack": {
+        "Ace Interceptor Helmet 🪖": "5:1"
+      },
+      "u_xscopez": {
+        "Irradiated Valakkar Pearl (Grade AAA) 🫧": "2:1"
+      },
+      "u_jabbz01": {
+        "Polaris Bits": "2:1"
+      },
+      "u_leousa": {
+        "UEE 6th Platoon Medal (Pristine) 🎖️": "1:1"
+      },
+      "u_omaraydogdu": {
+        "UEE 6th Platoon Medal (Pristine) 🎖️": "10:9"
+      }
+    },
+    "Valakkar fangs (APEX)": {
+      "u_lillyslim": {
+        "Irradiated Valakkar Pearl (Grade AAA) 🫧": "1:1"
+      },
+      "u_marretablack": {
+        "Ace Interceptor Helmet 🪖": "5:1"
+      }
+    }
+  },
+  "ratioNotes": {
+    "RCMBNT": {
+      "u_dudumight": {
+        "Irradiated Valakkar Fang (Apex) 🦷": "иногда 2:1, раньше было 1,5:1"
+      },
+      "u_gerbi": {
+        "Carinite (Pure)": ""
+      },
+      "u_mau_naabal": {
+        "Carinite (Pure)": "была сложная торговля: он и 1 pюр не хотел за рекомбинант отдавать"
+      }
+    }
+  },
+  "ratioColors": {
+    "RCMBNT": {
+      "u_watermech": {
+        "Wikelo Favor": "price_mid"
+      },
+      "u_nomorethanscars": {
+        "Carinite (Pure)": "price_mid"
+      },
+      "u_simsimhaeyoo": {
+        "Carinite (Pure)": "super"
+      },
+      "u_dudumight": {
+        "Irradiated Valakkar Fang (Apex) 🦷": "super"
+      },
+      "u_marretablack": {
+        "Ace Interceptor Helmet 🪖": "medium"
+      },
+      "u_leousa": {
+        "UEE 6th Platoon Medal (Pristine) 🎖️": "medium"
+      },
+      "u_jabbz01": {
+        "Polaris Bits": "price_mid"
+      },
+      "u_nicolas02": {
+        "Irradiated Valakkar Pearl (Grade AAA) 🫧": "price_top"
+      },
+      "u_justmoki": {
+        "Polaris Bits": "last"
+      },
+      "u_bogdand": {
+        "Polaris Bits": "last",
+        "Wikelo Favor": "last"
+      },
+      "u_llillliiliilill": {
+        "Carinite (Pure)": "medium"
+      },
+      "u_xscopez": {
+        "Irradiated Valakkar Pearl (Grade AAA) 🫧": "super"
+      },
+      "u_gerbi": {
+        "Wikelo Favor": "medium"
+      },
+      "u_pavelmak": {
+        "UEE 6th Platoon Medal (Pristine) 🎖️": "medium"
+      },
+      "u_mau_naabal": {
+        "Polaris Bits": "last",
+        "Wikelo Favor": "price_mid",
+        "Carinite (Pure)": "medium"
+      },
+      "u_violentsea": {
+        "Polaris Bits": "price_mid"
+      }
+    }
+  },
+  "userHeaderColors": {
+    "RCMBNT": {
+      "u_pavelmak": "ua"
+    }
+  },
+  "updatedAt": "2026-03-07T02:05:12.189Z"
+}
