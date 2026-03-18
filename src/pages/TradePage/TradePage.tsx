@@ -1323,7 +1323,7 @@ const TradePage = () => {
         <div className={styles.filtersRow}>
           <section className={styles.giveSection}>
           <label className={styles.label} htmlFor="give-select">
-            Я даю
+            Я даю test
           </label>
           <div className={styles.selectWithPopup}>
             <div className={styles.selectRow} ref={selectDropdownRef}>
