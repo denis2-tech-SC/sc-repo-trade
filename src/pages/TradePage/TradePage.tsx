@@ -1,11 +1,19 @@
 import { useState, useRef, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { Link } from 'react-router-dom';
-import { PencilIcon, TrashIcon, PlusIcon, ChevronDownIcon, CrossIcon } from './icons';
-import { getItemStyleClass } from './itemStyles';
+import { PencilIcon, TrashIcon, PlusIcon, ChevronDownIcon, CrossIcon, BurgerIcon, GearIcon, EyeIcon, EyeOffIcon, FolderMoveIcon } from './icons';
+import { getItemStyleClass, getShortItemName } from './itemStyles';
 import RatioBubble from './RatioBubble';
 import UserModal from './UserModal';
+import {
+  checkSimilarNicknamesInTable,
+  rearrangeSlotsByOtherTables,
+  type RearrangedSlotsResult,
+} from './tableNicknameSortUtils';
 import styles from './TradePage.module.css';
 import tablesRaw from '../temp.txt?raw';
+
+const API_BASE = (import.meta.env.VITE_API_URL ?? '').replace(/\/$/, '') || 'http://localhost:4000';
 
 type TradeTable = {
   title: string;
@@ -69,18 +77,35 @@ export type User = {
 };
 type UserFormData = Omit<User, 'id' | 'category'>;
 
-const createUserId = () => `u${Date.now()}`;
+/** id по нику: u_<нормализованный_ник>, единое правило с бэкендом */
 const normalizeNickname = (nickname: string): string => nickname.trim().toLowerCase();
+const normalizeNicknameForId = (nickname: string): string =>
+  nickname.trim().toLowerCase().replace(/\s+/g, '');
+const createUserId = (nickname: string): string => {
+  const base = normalizeNicknameForId(nickname);
+  return base ? `u_${base}` : `u_${Date.now()}`;
+};
+
+/** Схожий ник: один является началом другого (после trim+toLowerCase), но не равны. */
+const isSimilarNickname = (a: string, b: string): boolean => {
+  const na = (a ?? '').trim().toLowerCase();
+  const nb = (b ?? '').trim().toLowerCase();
+  if (na === nb) return false;
+  return na.length > 0 && nb.length > 0 && (na.startsWith(nb) || nb.startsWith(na));
+};
 
 const createSeedNickname = (index: number): string => `test_user_${index + 1}`;
 
-const DEFAULT_USERS: User[] = TABLE_DEFINITIONS.map((_, index) => ({
-  id: `seed_u_${index + 1}`,
-  nickname: createSeedNickname(index),
-  discordNickname: '',
-  accountLink: '',
-  category: 'main',
-}));
+const DEFAULT_USERS: User[] = TABLE_DEFINITIONS.map((_, index) => {
+  const nickname = createSeedNickname(index);
+  return {
+    id: createUserId(nickname),
+    nickname,
+    discordNickname: '',
+    accountLink: '',
+    category: 'main',
+  };
+});
 
 type TableUserSlots = Record<string, Array<UserId | null>>;
 type ColorTag =
@@ -126,14 +151,9 @@ type TradeUsersApiPayload = {
 type UserPopupType = 'created' | 'exists' | 'linked';
 type UserPopupState = { id: number; message: string; type: UserPopupType };
 
+/** Цвета только для блока пользователя (ник, малый блок). */
 const HEADER_COLOR_OPTIONS: Array<{ value: ColorTag; title: string }> = [
   { value: 'ua', title: 'Украинец' },
-  { value: 'super', title: 'Супер выгодно' },
-  { value: 'medium', title: 'Средне выгодно' },
-  { value: 'last', title: 'Последний вариант' },
-  { value: 'price_top', title: 'Моя цена топ' },
-  { value: 'price_mid', title: 'Моя цена средняя' },
-  { value: 'price_none', title: 'Без описания' },
   { value: 'fast', title: 'Быстро' },
   { value: 'stopped', title: 'Перестал трейдиться' },
   { value: 'gone', title: 'Пропал' },
@@ -163,9 +183,34 @@ const TradePage = () => {
   const [userModalOpen, setUserModalOpen] = useState(false);
   const [editingUserId, setEditingUserId] = useState<UserId | null>(null);
   const [activeTableForUserModal, setActiveTableForUserModal] = useState<string | null>(null);
+  const [lastCreatedDiscord, setLastCreatedDiscord] = useState('');
+  const [lastCreatedAccountLink, setLastCreatedAccountLink] = useState('');
+  const [searchInput, setSearchInput] = useState('');
+  const [activeSearch, setActiveSearch] = useState('');
   const [activeHeaderColorPickerKey, setActiveHeaderColorPickerKey] = useState<string | null>(null);
+  const [activeMoveCategoryKey, setActiveMoveCategoryKey] = useState<string | null>(null);
+  const [moveCategoryDropdownPosition, setMoveCategoryDropdownPosition] = useState<{ top: number; left: number } | null>(null);
   const [highlightedItem, setHighlightedItem] = useState<string>('');
   const [userCreatePopups, setUserCreatePopups] = useState<UserPopupState[]>([]);
+  const [burgerOpen, setBurgerOpen] = useState(false);
+  const [settingsOpen, setSettingsOpen] = useState(false);
+  const [maskContent, setMaskContent] = useState(false);
+  const [editModeBlockedPopup, setEditModeBlockedPopup] = useState(false);
+  const [headerPalettePosition, setHeaderPalettePosition] = useState<{ top: number; left: number } | null>(null);
+  const [shortItemNames, setShortItemNames] = useState(false);
+  type DeleteColumnOccurrence = { tableTitle: string; columnIndex: number };
+  const [deleteColumnModal, setDeleteColumnModal] = useState<{
+    tableTitle: string;
+    columnIndex: number;
+    userId: UserId;
+    userNickname: string;
+    otherOccurrences: DeleteColumnOccurrence[];
+  } | null>(null);
+  const [deleteColumnAlsoFrom, setDeleteColumnAlsoFrom] = useState<Set<string>>(new Set());
+  const [focusedEditRow, setFocusedEditRow] = useState<{ tableTitle: string; item: string } | null>(null);
+  const headerPaletteRef = useRef<HTMLDivElement>(null);
+  const moveCategoryDropdownRef = useRef<HTMLDivElement>(null);
+  const rootRef = useRef<HTMLDivElement>(null);
   const popupRef = useRef<HTMLDivElement>(null);
   const selectDropdownRef = useRef<HTMLDivElement>(null);
   const hasLoadedDbRef = useRef(false);
@@ -176,6 +221,11 @@ const TradePage = () => {
     if (!trimmed || items.includes(trimmed)) return;
     setItems((prev) => [...prev, trimmed]);
     setNewItemInput('');
+  };
+
+  const applySearchFilter = () => {
+    const trimmed = searchInput.trim();
+    setActiveSearch(trimmed);
   };
 
   const removeItem = (item: string) => {
@@ -384,6 +434,39 @@ const TradePage = () => {
     }));
   };
 
+  const handleRatioNavigate = (
+    _e: React.KeyboardEvent,
+    direction: 'down' | 'right',
+    tableTitle: string,
+    item: string,
+    userId: UserId,
+    tableItems: string[],
+    userSlots: Array<UserId | null>,
+  ) => {
+    const esc = (s: string) => CSS.escape(s);
+    if (direction === 'down') {
+      const itemIndex = tableItems.indexOf(item);
+      const nextIndex = itemIndex + 1;
+      if (nextIndex < tableItems.length) {
+        const nextItem = tableItems[nextIndex];
+        const el = document.querySelector(
+          `input[data-ratio-table="${esc(tableTitle)}"][data-ratio-item="${esc(nextItem)}"][data-ratio-user="${esc(userId)}"]`,
+        ) as HTMLInputElement | null;
+        el?.focus();
+      }
+    } else {
+      const colIndex = userSlots.findIndex((s) => s === userId);
+      const nextColIndex = colIndex + 1;
+      if (nextColIndex < userSlots.length && userSlots[nextColIndex]) {
+        const nextUserId = userSlots[nextColIndex] as UserId;
+        const el = document.querySelector(
+          `input[data-ratio-table="${esc(tableTitle)}"][data-ratio-item="${esc(item)}"][data-ratio-user="${esc(nextUserId)}"]`,
+        ) as HTMLInputElement | null;
+        el?.focus();
+      }
+    }
+  };
+
   const getUserHeaderColorTag = (tableTitle: string, userId: UserId): ColorTag =>
     normalizeColorTag(userHeaderColors[tableTitle]?.[userId]);
 
@@ -421,7 +504,12 @@ const TradePage = () => {
   const orderedTables = TABLE_DEFINITIONS;
 
   const updateUser = (userId: UserId, data: UserFormData) => {
-    setUsers((prev) => prev.map((u) => (u.id === userId ? { ...u, ...data } : u)));
+    const dataTrimmed: UserFormData = {
+      nickname: (data.nickname ?? '').trim(),
+      discordNickname: (data.discordNickname ?? '').trim(),
+      accountLink: (data.accountLink ?? '').trim(),
+    };
+    setUsers((prev) => prev.map((u) => (u.id === userId ? { ...u, ...dataTrimmed } : u)));
     setUserModalOpen(false);
     setEditingUserId(null);
     setActiveTableForUserModal(null);
@@ -435,48 +523,118 @@ const TradePage = () => {
     }, 3000);
   };
 
-  const addUserToTable = (tableTitle: string, data: UserFormData) => {
-    const normalizedNick = normalizeNickname(data.nickname);
+  const addUserToTable = (
+    tableTitle: string,
+    data: UserFormData,
+    initialRatios?: Record<string, string>,
+    initialRatioNotes?: Record<string, string>,
+    initialRatioColors?: Record<string, string>,
+  ): void | { reason: 'similar_nickname'; similarNickname: string; locations: Array<{ tableTitle: string; columnIndex: number }> } => {
+    const dataTrimmed: UserFormData = {
+      nickname: (data.nickname ?? '').trim(),
+      discordNickname: (data.discordNickname ?? '').trim(),
+      accountLink: (data.accountLink ?? '').trim(),
+    };
+    const nicknameLower = (dataTrimmed.nickname ?? '').toLowerCase();
     const existingUser = users.find(
       (u) =>
-        normalizeNickname(u.nickname) === normalizedNick &&
+        (u.nickname ?? '').toLowerCase() === nicknameLower &&
         (u.category ?? 'main') === activeCategory,
     );
-    const userId = existingUser?.id ?? createUserId();
+    if (!existingUser) {
+      const similarUser = users.find(
+        (u) =>
+          (u.category ?? 'main') === activeCategory &&
+          u.nickname !== dataTrimmed.nickname &&
+          isSimilarNickname(dataTrimmed.nickname, u.nickname),
+      );
+      if (similarUser) {
+        const locations: Array<{ tableTitle: string; columnIndex: number }> = [];
+        orderedTables.forEach((t) => {
+          const slots = tableUsers[t.title] ?? [];
+          slots.forEach((slot, columnIndex) => {
+            if (slot === similarUser.id) locations.push({ tableTitle: t.title, columnIndex });
+          });
+        });
+        return {
+          reason: 'similar_nickname',
+          similarNickname: similarUser.nickname,
+          locations,
+        };
+      }
+    }
+    const userId = existingUser?.id ?? createUserId(dataTrimmed.nickname);
     const alreadyInCurrentTable = (tableUsers[tableTitle] ?? []).includes(userId);
 
     if (!existingUser) {
-      setUsers((prev) => [...prev, { id: userId, ...data, category: activeCategory }]);
+      setUsers((prev) => [
+        ...prev,
+        {
+          id: userId,
+          nickname: dataTrimmed.nickname,
+          discordNickname: dataTrimmed.discordNickname,
+          accountLink: dataTrimmed.accountLink,
+          category: activeCategory,
+        },
+      ]);
+    } else {
+      // Существующий пользователь: перезаписать новые/изменённые поля из формы (дискорд, ссылка, регистр ника) и сохранить в БД
+      const hasNewData =
+        dataTrimmed.nickname !== existingUser.nickname ||
+        dataTrimmed.discordNickname !== (existingUser.discordNickname ?? '') ||
+        dataTrimmed.accountLink !== (existingUser.accountLink ?? '');
+      if (hasNewData) {
+        setUsers((prev) =>
+          prev.map((u) =>
+            u.id === userId
+              ? {
+                  ...u,
+                  nickname: dataTrimmed.nickname,
+                  discordNickname: dataTrimmed.discordNickname,
+                  accountLink: dataTrimmed.accountLink,
+                }
+              : u,
+          ),
+        );
+      }
     }
 
     setTableUsers((prev) => {
       const currentSlots = [...(prev[tableTitle] ?? [])];
       if (currentSlots.includes(userId)) return prev;
 
-      let linkedIndex = -1;
-      for (const [otherTableTitle, otherSlots] of Object.entries(prev)) {
-        if (otherTableTitle === tableTitle) continue;
-        const indexInOther = otherSlots.indexOf(userId);
-        if (indexInOther >= 0) {
-          linkedIndex = indexInOther;
-          break;
+      let targetColumnIndex = -1;
+
+      // 1) Есть ли в других таблицах столбец с этим же пользователем — подставляем в этот столбец (порядок таблиц фиксированный)
+      if (existingUser) {
+        for (const t of orderedTables) {
+          if (t.title === tableTitle) continue;
+          const otherSlots = prev[t.title];
+          if (!Array.isArray(otherSlots)) continue;
+          const indexInOther = otherSlots.indexOf(userId);
+          if (indexInOther >= 0) {
+            targetColumnIndex = indexInOther;
+            break;
+          }
         }
       }
 
-      if (existingUser && linkedIndex >= 0) {
-        while (currentSlots.length <= linkedIndex) {
+      if (targetColumnIndex >= 0) {
+        while (currentSlots.length <= targetColumnIndex) {
           currentSlots.push(null);
         }
-        if (currentSlots[linkedIndex] === null) {
-          currentSlots[linkedIndex] = userId;
+        if (currentSlots[targetColumnIndex] === null) {
+          currentSlots[targetColumnIndex] = userId;
         } else {
-          currentSlots.splice(linkedIndex, 0, userId);
+          currentSlots.splice(targetColumnIndex, 0, userId);
         }
       } else {
+        // 2) Есть ли свободное место (заглушка), где был удалён пользователь или ещё не добавлен
         const firstEmptyIndex = currentSlots.indexOf(null);
         if (firstEmptyIndex >= 0) {
           currentSlots[firstEmptyIndex] = userId;
         } else {
+          // 3) Вставляем в конец таблицы
           currentSlots.push(userId);
         }
       }
@@ -486,6 +644,57 @@ const TradePage = () => {
         [tableTitle]: currentSlots,
       };
     });
+
+    if (initialRatios && Object.keys(initialRatios).length > 0) {
+      setRatioOverrides((prev) => ({
+        ...prev,
+        [tableTitle]: {
+          ...(prev[tableTitle] ?? {}),
+          [userId]: { ...(prev[tableTitle]?.[userId] ?? {}), ...initialRatios },
+        },
+      }));
+    }
+    if (initialRatioNotes && Object.keys(initialRatioNotes).length > 0) {
+      setRatioNotes((prev) => ({
+        ...prev,
+        [tableTitle]: {
+          ...(prev[tableTitle] ?? {}),
+          [userId]: { ...(prev[tableTitle]?.[userId] ?? {}), ...initialRatioNotes },
+        },
+      }));
+    }
+    if (initialRatioColors && Object.keys(initialRatioColors).length > 0) {
+      setRatioColors((prev) => ({
+        ...prev,
+        [tableTitle]: {
+          ...(prev[tableTitle] ?? {}),
+          [userId]: { ...(prev[tableTitle]?.[userId] ?? {}), ...initialRatioColors },
+        },
+      }));
+    }
+
+    // Если пользователь уже существовал и для него где-то задан цвет хедера,
+    // применяем этот же цвет к новому столбцу (фон никнейма).
+    if (existingUser) {
+      let inheritedHeaderColor: ColorTag = '';
+      for (const [otherTableTitle, colorsByUser] of Object.entries(userHeaderColors)) {
+        if (otherTableTitle === tableTitle) continue;
+        const tag = normalizeColorTag(colorsByUser?.[userId]);
+        if (tag) {
+          inheritedHeaderColor = tag;
+          break;
+        }
+      }
+      if (inheritedHeaderColor && !normalizeColorTag(userHeaderColors[tableTitle]?.[userId])) {
+        setUserHeaderColors((prev) => ({
+          ...prev,
+          [tableTitle]: {
+            ...(prev[tableTitle] ?? {}),
+            [userId]: inheritedHeaderColor,
+          },
+        }));
+      }
+    }
 
     setUserModalOpen(false);
     setEditingUserId(null);
@@ -553,38 +762,135 @@ const TradePage = () => {
     });
   };
 
-  const removeUserColumn = (tableTitle: string, columnIndex: number) => {
+  const clearUserRatioDataInTable = (tableTitle: string, userId: UserId) => {
+    setRatioOverrides((prev) => {
+      const next = { ...prev };
+      const byTable = next[tableTitle];
+      if (byTable && byTable[userId]) {
+        const { [userId]: _, ...rest } = byTable;
+        if (Object.keys(rest).length > 0) next[tableTitle] = rest;
+        else delete next[tableTitle];
+      }
+      return next;
+    });
+    setRatioNotes((prev) => {
+      const next = { ...prev };
+      const byTable = next[tableTitle];
+      if (byTable && byTable[userId]) {
+        const { [userId]: _, ...rest } = byTable;
+        if (Object.keys(rest).length > 0) next[tableTitle] = rest;
+        else delete next[tableTitle];
+      }
+      return next;
+    });
+    setRatioColors((prev) => {
+      const next = { ...prev };
+      const byTable = next[tableTitle];
+      if (byTable && byTable[userId]) {
+        const { [userId]: _, ...rest } = byTable;
+        if (Object.keys(rest).length > 0) next[tableTitle] = rest;
+        else delete next[tableTitle];
+      }
+      return next;
+    });
+    setUserHeaderColors((prev) => {
+      const next = { ...prev };
+      const byTable = next[tableTitle];
+      if (byTable && byTable[userId] !== undefined) {
+        const { [userId]: _, ...rest } = byTable;
+        if (Object.keys(rest).length > 0) next[tableTitle] = rest;
+        else delete next[tableTitle];
+      }
+      return next;
+    });
+  };
+
+  const removeUserColumn = (tableTitle: string, columnIndex: number, userId?: UserId) => {
     setTableUsers((prev) => {
       const slots = [...(prev[tableTitle] ?? [])];
       if (columnIndex < 0 || columnIndex >= slots.length) return prev;
-      slots.splice(columnIndex, 1);
+      slots[columnIndex] = null;
       return {
         ...prev,
         [tableTitle]: slots,
       };
     });
+    if (userId) clearUserRatioDataInTable(tableTitle, userId);
   };
 
-  const confirmAndRemoveUserColumn = (
+  const getOtherOccurrencesOfUser = (
+    userId: UserId,
+    excludeTableTitle: string,
+    excludeColumnIndex: number,
+  ): DeleteColumnOccurrence[] => {
+    const list: DeleteColumnOccurrence[] = [];
+    Object.entries(tableUsers).forEach(([tTitle, slots]) => {
+      if (!Array.isArray(slots)) return;
+      slots.forEach((slot, idx) => {
+        if (slot === userId && (tTitle !== excludeTableTitle || idx !== excludeColumnIndex)) {
+          list.push({ tableTitle: tTitle, columnIndex: idx });
+        }
+      });
+    });
+    return list;
+  };
+
+  const occurrenceKey = (o: DeleteColumnOccurrence) => `${o.tableTitle}:${o.columnIndex}`;
+
+  const openDeleteColumnModal = (
     tableTitle: string,
     columnIndex: number,
-    userNickname?: string,
+    userNickname: string,
   ) => {
-    const columnLabel = `столбец №${columnIndex + 1}`;
-    const userLabel = userNickname ? `пользователь: ${userNickname}` : 'пустой столбец';
-    const confirmed = window.confirm(
-      `Хотите удалить ${columnLabel}?\nТаблица: ${tableTitle}\n(${userLabel})`,
-    );
-    if (!confirmed) return;
-    removeUserColumn(tableTitle, columnIndex);
+    const slots = tableUsers[tableTitle] ?? [];
+    const userId = (columnIndex >= 0 && columnIndex < slots.length ? slots[columnIndex] : null) as UserId | null;
+    if (!userId) return;
+    const otherOccurrences = getOtherOccurrencesOfUser(userId, tableTitle, columnIndex);
+    setDeleteColumnModal({
+      tableTitle,
+      columnIndex,
+      userId,
+      userNickname,
+      otherOccurrences,
+    });
+    setDeleteColumnAlsoFrom(new Set());
+  };
+
+  const applyDeleteColumn = (alsoFromKeys: Set<string>) => {
+    if (!deleteColumnModal) return;
+    const { tableTitle, columnIndex, userId: mainUserId } = deleteColumnModal;
+    const toRemove: Array<{ tableTitle: string; columnIndex: number; userId: UserId }> = [
+      { tableTitle, columnIndex, userId: mainUserId },
+    ];
+    alsoFromKeys.forEach((key) => {
+      const [t, c] = key.split(':');
+      const colIdx = parseInt(c, 10);
+      if (t && !Number.isNaN(colIdx)) {
+        const uid = (tableUsers[t] ?? [])[colIdx];
+        if (uid) toRemove.push({ tableTitle: t, columnIndex: colIdx, userId: uid });
+      }
+    });
+    toRemove.forEach(({ tableTitle: t, columnIndex: colIdx, userId: uid }) => {
+      removeUserColumn(t, colIdx, uid);
+    });
+    setDeleteColumnModal(null);
+    setDeleteColumnAlsoFrom(new Set());
   };
 
   const enabledItems = new Set(items);
   const customItems = items.filter((item) => !TEMPLATE_ITEMS.includes(item));
 
   const getTableItems = (table: TradeTable): string[] => {
-    const tableItems = table.items.filter((item) => enabledItems.has(item));
-    return [...tableItems, ...customItems];
+    const baseItems = table.items.filter((item) => enabledItems.has(item));
+    const allItems = [...baseItems, ...customItems];
+
+    if (!activeSearch) return allItems;
+
+    const q = activeSearch.toLowerCase();
+    const titleMatches = table.title.toLowerCase().includes(q);
+    if (titleMatches) return allItems;
+
+    return allItems.filter((item) => item.toLowerCase().includes(q));
   };
 
   const selectedTable =
@@ -592,14 +898,32 @@ const TradePage = () => {
       ? null
       : orderedTables.find((table) => table.title === selectedTableName) ?? null;
 
-  const getUserSlotsForTable = (tableTitle: string): Array<UserId | null> => tableUsers[tableTitle] ?? [];
-  const getVisibleUserSlotsForTable = (tableTitle: string): Array<UserId | null> =>
-    getUserSlotsForTable(tableTitle).map((slot) => {
+  const getUserSlotsForTable = (tableTitle: string): Array<UserId | null> =>
+    tableUsers[tableTitle] ?? [];
+
+  const getVisibleUserSlotsForTable = (tableTitle: string): Array<UserId | null> => {
+    const baseSlots = getUserSlotsForTable(tableTitle);
+    const tableDef = orderedTables.find((t) => t.title === tableTitle) ?? null;
+    const tableItemsForFilter = tableDef ? getTableItems(tableDef) : [];
+
+    return baseSlots.map((slot) => {
       if (!slot) return null;
       const user = usersById[slot];
       if (!user) return null;
-      return (user.category ?? 'main') === activeCategory ? slot : null;
+      if ((user.category ?? 'main') !== activeCategory) return null;
+
+      // Если включён поиск, и у пользователя по всем видимым пунктам пустые инпуты — скрываем его.
+      if (activeSearch && tableItemsForFilter.length > 0) {
+        const hasAnyValue = tableItemsForFilter.some((item) => {
+          const v = getRatio(tableTitle, user.id, item);
+          return (v ?? '').trim() !== '';
+        });
+        if (!hasAnyValue) return null;
+      }
+
+      return slot;
     });
+  };
 
   const getUsersForTable = (tableTitle: string): User[] =>
     getVisibleUserSlotsForTable(tableTitle)
@@ -634,6 +958,25 @@ const TradePage = () => {
     });
     return acc;
   }, {});
+  const linkedUserLocations: Record<UserId, Array<{ tableTitle: string; columnIndex: number }>> = {};
+  orderedTables.forEach((t) => {
+    (tableUsers[t.title] ?? []).forEach((id, columnIndex) => {
+      if (!id) return;
+      if (!linkedUserLocations[id]) linkedUserLocations[id] = [];
+      linkedUserLocations[id].push({ tableTitle: t.title, columnIndex });
+    });
+  });
+  const linkedByNicknameLocations: Record<string, Array<{ tableTitle: string; columnIndex: number }>> = {};
+  orderedTables.forEach((t) => {
+    (tableUsers[t.title] ?? []).forEach((id, columnIndex) => {
+      if (!id) return;
+      const user = usersById[id];
+      if (!user) return;
+      const normNick = normalizeNickname(user.nickname);
+      if (!linkedByNicknameLocations[normNick]) linkedByNicknameLocations[normNick] = [];
+      linkedByNicknameLocations[normNick].push({ tableTitle: t.title, columnIndex });
+    });
+  });
   const maxUserColumns = orderedTables.reduce(
     (max, table) => Math.max(max, (tableUsers[table.title] ?? []).length),
     0,
@@ -673,14 +1016,21 @@ const TradePage = () => {
   useEffect(() => {
     const loadInitialUsersFromLocalDb = async () => {
       try {
-        const response = await fetch('http://localhost:4000/api/trade-table-users');
+        const response = await fetch(`${API_BASE}/api/trade-table-users`);
         if (!response.ok) {
+          setUsers([...DEFAULT_USERS]);
+          setTableUsers({ ...DEFAULT_TABLE_USERS });
           hasLoadedDbRef.current = true;
           return;
         }
         const payload = (await response.json()) as TradeUsersApiPayload;
         const dbUsers = Array.isArray(payload.users)
-          ? payload.users.map((u) => ({ ...u, category: u.category ?? 'main' }))
+          ? payload.users.map((u) => ({
+              ...u,
+              category: u.category ?? 'main',
+              discordNickname: u.discordNickname ?? '',
+              accountLink: u.accountLink ?? '',
+            }))
           : [];
         const dbTableUsers = payload.tableUsers && typeof payload.tableUsers === 'object'
           ? payload.tableUsers
@@ -691,15 +1041,33 @@ const TradePage = () => {
         );
 
         if (!hasUsersInDb || !hasUserSlotsInDb) {
+          setUsers([...DEFAULT_USERS]);
+          setTableUsers({ ...DEFAULT_TABLE_USERS });
           hasLoadedDbRef.current = true;
           return;
         }
 
-        setUsers(dbUsers);
-        setTableUsers((prev) => ({
-          ...prev,
-          ...dbTableUsers,
-        }));
+        const mergedTableUsers: TableUserSlots = { ...DEFAULT_TABLE_USERS, ...dbTableUsers };
+        const defaultUserIdsToAdd = new Set<UserId>();
+        TABLE_DEFINITIONS.forEach((table) => {
+          const title = table.title;
+          const slots = mergedTableUsers[title] ?? [];
+          const hasAny = slots.some((s) => s !== null && s !== '');
+          if (!hasAny && DEFAULT_TABLE_USERS[title]?.length) {
+            mergedTableUsers[title] = [...DEFAULT_TABLE_USERS[title]];
+            DEFAULT_TABLE_USERS[title].forEach((id) => id && defaultUserIdsToAdd.add(id));
+          }
+        });
+        const usersToSet = [...dbUsers];
+        defaultUserIdsToAdd.forEach((id) => {
+          if (!usersToSet.some((u) => u.id === id)) {
+            const defUser = DEFAULT_USERS.find((u) => u.id === id);
+            if (defUser) usersToSet.push(defUser);
+          }
+        });
+
+        setUsers(usersToSet);
+        setTableUsers(mergedTableUsers);
         if (payload.ratioOverrides && typeof payload.ratioOverrides === 'object') {
           setRatioOverrides(payload.ratioOverrides);
         }
@@ -714,13 +1082,30 @@ const TradePage = () => {
         }
         hasLoadedDbRef.current = true;
       } catch {
-        // fallback to default test users
+        setUsers([...DEFAULT_USERS]);
+        setTableUsers({ ...DEFAULT_TABLE_USERS });
         hasLoadedDbRef.current = true;
       }
     };
 
     void loadInitialUsersFromLocalDb();
   }, []);
+
+  // Удалить из users тех, кто не числится ни в одном столбце ни в одной таблице (после удаления столбца)
+  useEffect(() => {
+    if (!hasLoadedDbRef.current) return;
+    const idsInTables = new Set<UserId>();
+    Object.values(tableUsers).forEach((slots) => {
+      if (!Array.isArray(slots)) return;
+      slots.forEach((slot) => {
+        if (slot != null && slot !== '') idsInTables.add(slot);
+      });
+    });
+    setUsers((prev) => {
+      const next = prev.filter((u) => idsInTables.has(u.id));
+      return next.length === prev.length ? prev : next;
+    });
+  }, [tableUsers]);
 
   useEffect(() => {
     if (!hasLoadedDbRef.current) return;
@@ -730,7 +1115,7 @@ const TradePage = () => {
     }
 
     saveTimerRef.current = window.setTimeout(() => {
-      void fetch('http://localhost:4000/api/trade-table-users', {
+      void fetch(`${API_BASE}/api/trade-table-users`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
@@ -764,62 +1149,179 @@ const TradePage = () => {
       if (selectOpen && editingItemIndex === null && selectDropdownRef.current && !selectDropdownRef.current.contains(target)) {
         setSelectOpen(false);
       }
+      if (activeHeaderColorPickerKey && headerPaletteRef.current && !headerPaletteRef.current.contains(target)) {
+        if (!(e.target as Element).closest('[data-header-picker]')) {
+          setActiveHeaderColorPickerKey(null);
+          setHeaderPalettePosition(null);
+        }
+      }
+      if (activeMoveCategoryKey && moveCategoryDropdownRef.current && !moveCategoryDropdownRef.current.contains(target)) {
+        if (!(e.target as Element).closest('[data-move-category]')) {
+          setActiveMoveCategoryKey(null);
+        }
+      }
     };
     document.addEventListener('mousedown', handleClickOutside);
     return () => document.removeEventListener('mousedown', handleClickOutside);
-  }, [addPopupOpen, selectOpen, editingItemIndex]);
+  }, [addPopupOpen, selectOpen, editingItemIndex, activeHeaderColorPickerKey, activeMoveCategoryKey]);
 
   const toggleEditMode = () => {
     const nextMode = !isEditMode;
+    if (nextMode && selectedTableName !== '') {
+      setEditModeBlockedPopup(true);
+      return;
+    }
     setIsEditMode(nextMode);
     if (!nextMode) {
       setActiveHeaderColorPickerKey(null);
+      setHeaderPalettePosition(null);
+      setActiveMoveCategoryKey(null);
     }
   };
 
+  const handleRootScroll = () => {
+    const el = rootRef.current;
+    if (!el) return;
+    setShortItemNames(el.scrollLeft > 30);
+  };
+
   return (
-    <div className={styles.root} style={{ zoom: uiScale }}>
-      <div className={styles.header}>
-        <Link to="/" className={styles.linkToTrade}>
-          ← На главную
-        </Link>
-        <div className={styles.categoryTabs}>
-          {CATEGORY_TABS.map((tab) => (
-            <button
-              key={tab.key}
-              type="button"
-              className={`${styles.categoryTabBtn} ${activeCategory === tab.key ? styles.categoryTabBtnActive : ''}`}
-              onClick={() => setActiveCategory(tab.key)}
-            >
-              {tab.label}
-            </button>
-          ))}
-          <button
-            type="button"
-            className={styles.colorLegendBtn}
-            onClick={() => setColorLegendOpen(true)}
-            title="Информация по цветам"
-            aria-label="Информация по цветам"
-          >
-            i
-          </button>
-          <div className={styles.zoomControls}>
-            {UI_SCALE_OPTIONS.map((scale) => (
-              <button
-                key={scale}
-                type="button"
-                className={`${styles.zoomBtn} ${uiScale === scale ? styles.zoomBtnActive : ''}`}
-                onClick={() => setUiScale(scale)}
-              >
-                {Math.round(scale * 100)}%
-              </button>
-            ))}
-          </div>
-        </div>
+    <div
+      ref={rootRef}
+      className={`${styles.root} ${shortItemNames ? styles.shortItemNames : ''}`}
+      style={{ zoom: uiScale }}
+      onScroll={handleRootScroll}
+    >
+      <div className={styles.headerBar}>
+        <button
+          type="button"
+          className={styles.maskContentBtn}
+          onClick={() => setMaskContent((v) => !v)}
+          title={maskContent ? 'Показать никнеймы и соотношения' : 'Скрыть никнеймы и соотношения'}
+          aria-label={maskContent ? 'Показать контент' : 'Скрыть контент'}
+        >
+          {maskContent ? <EyeOffIcon /> : <EyeIcon />}
+        </button>
+        <button
+          type="button"
+          className={styles.burgerBtn}
+          onClick={() => setBurgerOpen(true)}
+          aria-label="Открыть меню"
+        >
+          <BurgerIcon />
+        </button>
       </div>
 
+      {burgerOpen && (
+        <>
+          <div
+            className={styles.burgerBackdrop}
+            onClick={() => setBurgerOpen(false)}
+            aria-hidden
+          />
+          <div className={styles.burgerPanel} role="dialog" aria-label="Меню">
+            <div className={styles.burgerPanelHeader}>
+              <span className={styles.burgerPanelTitle}>Навигация и настройки</span>
+              <button
+                type="button"
+                className={styles.burgerCloseBtn}
+                onClick={() => setBurgerOpen(false)}
+                aria-label="Закрыть меню"
+              >
+                <CrossIcon />
+              </button>
+            </div>
+            <div className={styles.burgerContent}>
+              <section className={styles.burgerSection}>
+                <Link to="/" className={styles.linkToTrade} onClick={() => setBurgerOpen(false)}>
+                  ← На главную
+                </Link>
+              </section>
+              <section className={styles.burgerSection}>
+                <span className={styles.burgerSectionLabel}>Категории</span>
+                <div className={styles.categoryTabs}>
+                  {CATEGORY_TABS.map((tab) => (
+                    <button
+                      key={tab.key}
+                      type="button"
+                      className={`${styles.categoryTabBtn} ${activeCategory === tab.key ? styles.categoryTabBtnActive : ''}`}
+                      onClick={() => setActiveCategory(tab.key)}
+                    >
+                      {tab.label}
+                    </button>
+                  ))}
+                </div>
+              </section>
+              <section className={styles.burgerSection}>
+                <span className={styles.burgerSectionLabel}>Инфо и настройки</span>
+                <div className={styles.burgerInfoSettingsRow}>
+                  <button
+                    type="button"
+                    className={styles.infoBtnLarge}
+                    onClick={() => {
+                      setColorLegendOpen(true);
+                      setBurgerOpen(false);
+                    }}
+                    title="Информация по цветам"
+                    aria-label="Информация по цветам"
+                  >
+                    i
+                  </button>
+                  <button
+                    type="button"
+                    className={styles.settingsGearBtn}
+                    onClick={() => {
+                      setSettingsOpen(true);
+                      setBurgerOpen(false);
+                    }}
+                    title="Настройки"
+                    aria-label="Настройки"
+                  >
+                    <GearIcon />
+                  </button>
+                </div>
+              </section>
+            </div>
+          </div>
+        </>
+      )}
+
+      {settingsOpen && (
+        <div className={styles.settingsOverlay} onClick={() => setSettingsOpen(false)}>
+          <div className={styles.settingsModal} onClick={(e) => e.stopPropagation()}>
+            <div className={styles.settingsModalHeader}>
+              <h3 className={styles.settingsModalTitle}>Настройки</h3>
+              <button
+                type="button"
+                className={styles.burgerCloseBtn}
+                onClick={() => setSettingsOpen(false)}
+                aria-label="Закрыть"
+              >
+                <CrossIcon />
+              </button>
+            </div>
+            <div className={styles.settingsModalBody}>
+              <label className={styles.settingsLabel}>Размер интерфейса</label>
+              <div className={styles.zoomControls}>
+                {UI_SCALE_OPTIONS.map((scale) => (
+                  <button
+                    key={scale}
+                    type="button"
+                    className={`${styles.zoomBtn} ${uiScale === scale ? styles.zoomBtnActive : ''}`}
+                    onClick={() => setUiScale(scale)}
+                  >
+                    {Math.round(scale * 100)}%
+                  </button>
+                ))}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
       <div className={styles.mainLayout}>
-        <section className={styles.giveSection}>
+        <div className={styles.filtersRow}>
+          <section className={styles.giveSection}>
           <label className={styles.label} htmlFor="give-select">
             Я даю
           </label>
@@ -948,7 +1450,36 @@ const TradePage = () => {
               </div>
             )}
           </div>
-        </section>
+          </section>
+
+          <section className={styles.giveSection}>
+          <label className={styles.label} htmlFor="search-input">
+            Поиск
+          </label>
+          <div className={styles.selectWithPopup}>
+            <div className={styles.addRow}>
+              <input
+                id="search-input"
+                type="text"
+                className={styles.addInput}
+                placeholder="Поиск по названию / предмету"
+                value={searchInput}
+                onChange={(e) => setSearchInput(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') applySearchFilter();
+                }}
+              />
+              <button
+                type="button"
+                className={styles.btn}
+                onClick={applySearchFilter}
+              >
+                Найти
+              </button>
+            </div>
+          </div>
+          </section>
+        </div>
 
         <div className={styles.separator} />
 
@@ -986,6 +1517,74 @@ const TradePage = () => {
                             >
                               <PlusIcon />
                             </button>
+                            {isEditMode &&
+                              (table.title === 'Carinite (Pure)' ||
+                                table.title === 'DCHS-05 Comp-Board') && (
+                              <button
+                                type="button"
+                                className={styles.sortNamesBtn}
+                                onClick={() => {
+                                  const slots = tableUsers[table.title] ?? [];
+                                  const orderedTitles = orderedTables.map((t) => t.title);
+                                  const { newSlots, movedToTail }: RearrangedSlotsResult = rearrangeSlotsByOtherTables(
+                                    table.title,
+                                    slots,
+                                    tableUsers,
+                                    orderedTitles,
+                                    usersById,
+                                  );
+                                  const same =
+                                    newSlots.length === slots.length &&
+                                    newSlots.every((v, i) => v === slots[i]);
+                                  if (same) {
+                                    window.alert('Изменений не требуется: столбцы уже совпадают с другими таблицами.');
+                                    return;
+                                  }
+                                  setTableUsers((prev) => {
+                                    const next: TableUserSlots = {};
+                                    const targetLength = newSlots.length;
+
+                                    // 1) Выравниваем длину всех таблиц по целевому количеству столбцов.
+                                    Object.entries(prev).forEach(([tTitle, tSlots]) => {
+                                      const arr = [...(tSlots ?? [])];
+                                      while (arr.length < targetLength) {
+                                        arr.push(null);
+                                      }
+                                      next[tTitle] = arr;
+                                    });
+
+                                    // 2) Обновляем текущую таблицу на результат сортировки.
+                                    next[table.title] = newSlots;
+
+                                    // 3) Переносим в конец все "хвостовые" userId во всех таблицах.
+                                    movedToTail.forEach(({ userId, columnIndex }) => {
+                                      Object.entries(next).forEach(([tTitle, tSlots]) => {
+                                        const arr = [...tSlots];
+                                        const currentIndex = arr.indexOf(userId);
+                                        if (currentIndex === -1) return;
+                                        if (currentIndex === columnIndex) return;
+
+                                        // Освобождаем старое место.
+                                        arr[currentIndex] = null;
+
+                                        // Если в целевом столбце уже кто‑то есть, не трогаем (чтобы не ломать другие цепочки).
+                                        if (arr[columnIndex] == null) {
+                                          arr[columnIndex] = userId;
+                                        }
+
+                                        next[tTitle] = arr;
+                                      });
+                                    });
+
+                                    return next;
+                                  });
+                                  window.alert('Столбцы переставлены по совпадению с другими таблицами.');
+                                }}
+                                title="Переставить столбцы по индексам из других таблиц (тот же пользователь/ник)"
+                              >
+                                Сортировка имён
+                              </button>
+                            )}
                           </div>
                         </th>
                         {userSlots.map((slot, columnIndex) => {
@@ -1007,14 +1606,10 @@ const TradePage = () => {
                           return (
                             <th key={user.id} className={styles.userTh}>
                               {(() => {
-                                const linkedCount = linkedUserTableCount[user.id] ?? 0;
                                 const normalizedNickname = normalizeNickname(user.nickname);
+                                const linkedCountByNick = linkedByNicknameLocations[normalizedNickname]?.length ?? 0;
                                 const sameNickRepeatCount =
                                   columnNicknameCount[columnIndex]?.[normalizedNickname] ?? 0;
-                                const hasOtherRepeatedNickInColumn =
-                                  (columnRepeatedNicknames[columnIndex] ?? []).some(
-                                    (nick) => nick !== normalizedNickname,
-                                  );
                                 const duplicateInSameColumn = sameNickRepeatCount > 1;
                                 const shadeIndex = getNicknameShadeIndex(
                                   columnIndex,
@@ -1026,21 +1621,56 @@ const TradePage = () => {
                                     : shadeIndex % 3 === 2
                                       ? styles.nicknameLinkedShade2
                                       : styles.nicknameLinkedShade3;
-                                const linkedClass =
-                                  linkedCount > 1 ||
-                                  duplicateInSameColumn ||
-                                  hasOtherRepeatedNickInColumn
-                                    ? `${styles.nicknameLinked} ${shadeClass}`
-                                    : '';
+                                const shouldApplyBlue = linkedCountByNick > 1 || duplicateInSameColumn;
+                                const linkedClass = shouldApplyBlue
+                                  ? `${styles.nicknameLinked} ${shadeClass}`
+                                  : '';
+                                if (shouldApplyBlue) {
+                                  const locationsByNick = linkedByNicknameLocations[normalizedNickname] ?? [];
+                                  const isFirstOccurrence =
+                                    locationsByNick.length > 0 &&
+                                    locationsByNick[0].tableTitle === table.title &&
+                                    locationsByNick[0].columnIndex === columnIndex;
+                                  // if (linkedCountByNick > 1 && isFirstOccurrence) {
+                                  //   const locationsStr = locationsByNick
+                                  //     .map((loc) => `«${loc.tableTitle}», столбец №${loc.columnIndex + 1}`)
+                                  //     .join('; ');
+                                  //   console.log(
+                                  //     '[TradePage синий фон]',
+                                  //     `Ник "${user.nickname}" (id: ${user.id}): один и тот же ник в нескольких таблицах/столбцах —`,
+                                  //     locationsStr,
+                                  //   );
+                                  // } else if (duplicateInSameColumn) {
+                                  //   console.log(
+                                  //     '[TradePage синий фон]',
+                                  //     `Пользователь "${user.nickname}" (id: ${user.id}): дубликат ника в этом столбце — таблица «${table.title}», столбец №${columnIndex + 1}`,
+                                  //   );
+                                  // }
+                                }
                                 const headerColorTag = getUserHeaderColorTag(table.title, user.id);
                                 const headerColorClass = getHeaderColorClass(headerColorTag);
-                                const pickerKey = `${table.title}:${user.id}`;
+                                const pickerKey = `${table.title}::${user.id}`;
                                 const isHeaderColorPickerOpen = activeHeaderColorPickerKey === pickerKey;
+                                const openHeaderPaletteAbove = (el: HTMLElement) => {
+                                  const rect = el.getBoundingClientRect();
+                                  const w = 220;
+                                  const h = 36;
+                                  setHeaderPalettePosition({
+                                    left: Math.max(8, Math.min(rect.left + rect.width / 2 - w / 2, window.innerWidth - w - 8)),
+                                    top: Math.max(8, rect.top - h - 2),
+                                  });
+                                  setActiveHeaderColorPickerKey(pickerKey);
+                                };
                                 return (
                                   <div
                                     className={`${styles.userHeaderPanel} ${
                                       headerColorClass ? styles[headerColorClass] : ''
                                     }`}
+                                    onContextMenu={isEditMode ? (e) => {
+                                      e.preventDefault();
+                                      e.stopPropagation();
+                                      openHeaderPaletteAbove(e.currentTarget as HTMLElement);
+                                    } : undefined}
                                   >
                                     {isEditMode ? (
                                       <div className={styles.moveUserActions}>
@@ -1086,23 +1716,62 @@ const TradePage = () => {
                                             .filter(Boolean)
                                             .join('\n')}
                                         >
-                                          {user.nickname}
+                                          {maskContent ? '**' : user.nickname}
                                         </a>
                                       ) : (
                                         <span
                                           className={`${styles.nickname} ${linkedClass}`}
-                                          title={[
+                                          title={maskContent ? undefined : [
                                             `Ник: ${user.nickname}`,
                                             user.discordNickname && `Discord: ${user.discordNickname}`,
                                           ]
                                             .filter(Boolean)
                                             .join('\n')}
                                         >
-                                          {user.nickname}
+                                          {maskContent ? '**' : user.nickname}
                                         </span>
                                       )}
                                     </div>
                                     {isEditMode ? (
+                                      <div className={styles.userHeaderTools}>
+                                        <div data-move-category className={styles.moveCategoryWrap}>
+                                          <button
+                                            type="button"
+                                            className={styles.moveCategoryBtn}
+                                            onClick={(e) => {
+                                              e.stopPropagation();
+                                              const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
+                                              if (activeMoveCategoryKey === pickerKey) {
+                                                setActiveMoveCategoryKey(null);
+                                                setMoveCategoryDropdownPosition(null);
+                                              } else {
+                                                setMoveCategoryDropdownPosition({
+                                                  left: Math.max(8, Math.min(rect.left, window.innerWidth - 220)),
+                                                  top: rect.bottom + 4,
+                                                });
+                                                setActiveMoveCategoryKey(pickerKey);
+                                              }
+                                            }}
+                                            title="Перенести в другую категорию"
+                                            aria-label="Перенести в другую категорию"
+                                          >
+                                            <FolderMoveIcon />
+                                          </button>
+                                        </div>
+                                        <button
+                                          type="button"
+                                          className={styles.columnDeleteBtn}
+                                          onClick={(e) => {
+                                            e.stopPropagation();
+                                            openDeleteColumnModal(table.title, columnIndex, user.nickname);
+                                          }}
+                                          title="Удалить этот столбец"
+                                          aria-label="Удалить этот столбец"
+                                        >
+                                          <CrossIcon />
+                                        </button>
+                                      </div>
+                                    ) : (
                                       <div className={styles.userHeaderTools}>
                                         <button
                                           type="button"
@@ -1113,82 +1782,12 @@ const TradePage = () => {
                                             setActiveTableForUserModal(table.title);
                                             setUserModalOpen(true);
                                           }}
-                                          title="Редактировать"
+                                          title="Редактировать / переименовать"
                                         >
                                           <PencilIcon />
                                         </button>
-                                        <div className={styles.headerColorPickerWrap}>
-                                          <button
-                                            type="button"
-                                            className={`${styles.headerCurrentColorBtn} ${
-                                              headerColorClass
-                                                ? styles[headerColorClass]
-                                                : styles.headerCurrentColorBtnEmpty
-                                            }`}
-                                            onClick={(e) => {
-                                              e.stopPropagation();
-                                              setActiveHeaderColorPickerKey((prev) =>
-                                                prev === pickerKey ? null : pickerKey,
-                                              );
-                                            }}
-                                            title="Цвет фона колонки"
-                                          />
-                                          {isHeaderColorPickerOpen && (
-                                            <div
-                                              className={styles.headerColorPalette}
-                                              onClick={(e) => e.stopPropagation()}
-                                            >
-                                              {HEADER_COLOR_OPTIONS.map((option) => (
-                                                <button
-                                                  key={option.value}
-                                                  type="button"
-                                                  className={`${styles.headerColorTagBtn} ${
-                                                    styles[getHeaderColorClass(option.value)]
-                                                  }`}
-                                                  onClick={() => {
-                                                    handleUserHeaderColorTagChange(
-                                                      table.title,
-                                                      user.id,
-                                                      option.value,
-                                                    );
-                                                    setActiveHeaderColorPickerKey(null);
-                                                  }}
-                                                  title={option.title}
-                                                />
-                                              ))}
-                                              <button
-                                                type="button"
-                                                className={styles.headerColorClearBtn}
-                                                onClick={() => {
-                                                  handleUserHeaderColorTagChange(table.title, user.id, '');
-                                                  setActiveHeaderColorPickerKey(null);
-                                                }}
-                                                title="Сбросить цвет"
-                                              >
-                                                ×
-                                              </button>
-                                            </div>
-                                          )}
-                                        </div>
-                                        <button
-                                          type="button"
-                                          className={styles.columnDeleteBtn}
-                                          onClick={(e) => {
-                                            e.stopPropagation();
-                                            confirmAndRemoveUserColumn(
-                                              table.title,
-                                              columnIndex,
-                                              user.nickname,
-                                            );
-                                          }}
-                                          title="Удалить этот столбец"
-                                          aria-label="Удалить этот столбец"
-                                        >
-                                          <CrossIcon />
-                                        </button>
+                                        <div className={styles.userHeaderToolsSpacer} />
                                       </div>
-                                    ) : (
-                                      <div className={styles.userHeaderToolsSpacer} />
                                     )}
                                   </div>
                                 );
@@ -1199,10 +1798,13 @@ const TradePage = () => {
                       </tr>
                     </thead>
                     <tbody>
-                      {tableItems.map((item) => (
+                      {tableItems.map((item) => {
+                        const isFocusedEditRow =
+                          focusedEditRow?.tableTitle === table.title && focusedEditRow?.item === item;
+                        return (
                         <tr
                           key={`${table.title}-${item}`}
-                          className={highlightedItem === item ? styles.highlightedItemRow : ''}
+                          className={`${highlightedItem === item ? styles.highlightedItemRow : ''} ${isFocusedEditRow ? styles.focusedEditRow : ''}`.trim()}
                         >
                           <td
                             className={`${styles.stickyCol} ${
@@ -1220,7 +1822,8 @@ const TradePage = () => {
                               }
                               title="Выделить эту строку во всех таблицах"
                             >
-                              {item}
+                              <span className={styles.itemNameFull}>{item}</span>
+                              <span className={styles.itemNameShort}>{getShortItemName(item)}</span>
                             </div>
                           </td>
                           {userSlots.map((slot, columnIndex) => {
@@ -1250,12 +1853,24 @@ const TradePage = () => {
                                   onNoteChange={(v) => handleNoteChange(table.title, user.id, item, v)}
                                   onColorTagChange={(v) => handleColorTagChange(table.title, user.id, item, v)}
                                   isEditMode={isEditMode}
+                                  maskContent={maskContent}
+                                  dataTableTitle={table.title}
+                                  dataItem={item}
+                                  dataUserId={user.id}
+                                  onRatioNavigate={(e, dir) =>
+                                    handleRatioNavigate(e, dir, table.title, item, user.id, tableItems, userSlots)
+                                  }
+                                  onRowFocus={() =>
+                                    isEditMode && setFocusedEditRow({ tableTitle: table.title, item })
+                                  }
+                                  onRowBlur={() => setFocusedEditRow(null)}
                                 />
                               </td>
                             );
                           })}
                         </tr>
-                      ))}
+                        );
+                      })}
                     </tbody>
                   </table>
                 </div>
@@ -1267,8 +1882,20 @@ const TradePage = () => {
 
       {userModalOpen && (
         <UserModal
+          key={`${editingUserId ?? 'new'}-${activeTableForUserModal ?? ''}`}
           user={editingUserId ? users.find((u) => u.id === editingUserId) ?? null : null}
-          onSave={(data) => {
+          tableContext={
+            activeTableForUserModal
+              ? {
+                  tableTitle: activeTableForUserModal,
+                  items:
+                    orderedTables.find((t) => t.title === activeTableForUserModal)?.items ?? [],
+                }
+              : null
+          }
+          defaultDiscordNickname={!editingUserId ? lastCreatedDiscord : undefined}
+          defaultAccountLink={!editingUserId ? lastCreatedAccountLink : undefined}
+          onSave={(data, initialRatios, initialRatioNotes, initialRatioColors) => {
             if (editingUserId) {
               updateUser(editingUserId, data);
             } else {
@@ -1278,7 +1905,27 @@ const TradePage = () => {
                 TABLE_DEFINITIONS[0]?.title ||
                 '';
               if (!tableTitle) return;
-              addUserToTable(tableTitle, data);
+              const result = addUserToTable(
+                tableTitle,
+                data,
+                initialRatios,
+                initialRatioNotes,
+                initialRatioColors,
+              );
+              if (result && result.reason === 'similar_nickname') {
+                const locationsStr =
+                  result.locations.length > 0
+                    ? result.locations
+                        .map((loc) => `«${loc.tableTitle}», столбец №${loc.columnIndex + 1}`)
+                        .join('; ')
+                    : '—';
+                window.alert(
+                  `Есть никнейм со схожей структурой: «${result.similarNickname}». Создать такого пользователя нельзя.\n\nСхожий ник уже есть: ${locationsStr}\n\nИзмените ник или выберите существующего.`,
+                );
+                return false;
+              }
+              setLastCreatedDiscord(data.discordNickname ?? '');
+              setLastCreatedAccountLink(data.accountLink ?? '');
             }
           }}
           onClose={() => {
@@ -1288,6 +1935,91 @@ const TradePage = () => {
           }}
         />
       )}
+
+      {deleteColumnModal && (
+        <div
+          className={styles.deleteColumnOverlay}
+          onClick={() => {
+            setDeleteColumnModal(null);
+            setDeleteColumnAlsoFrom(new Set());
+          }}
+          role="presentation"
+        >
+          <div
+            className={styles.deleteColumnModal}
+            onClick={(e) => e.stopPropagation()}
+            role="dialog"
+            aria-labelledby="delete-column-title"
+          >
+            <h2 id="delete-column-title" className={styles.deleteColumnTitle}>
+              Удалить пользователя из таблицы
+            </h2>
+            <p className={styles.deleteColumnInfo}>
+              <strong>Таблица:</strong> {deleteColumnModal.tableTitle}
+              <br />
+              <strong>Столбец:</strong> №{deleteColumnModal.columnIndex + 1}
+              <br />
+              <strong>Пользователь:</strong> {deleteColumnModal.userNickname}
+            </p>
+            {deleteColumnModal.otherOccurrences.length > 0 ? (
+              <div className={styles.deleteColumnOthers}>
+                <p className={styles.deleteColumnOthersTitle}>
+                  Этот пользователь также есть в других таблицах. Удалить и из этих столбцов?
+                </p>
+                <ul className={styles.deleteColumnOthersList}>
+                  {deleteColumnModal.otherOccurrences.map((occ) => {
+                    const key = occurrenceKey(occ);
+                    const checked = deleteColumnAlsoFrom.has(key);
+                    return (
+                      <li key={key} className={styles.deleteColumnOthersItem}>
+                        <label>
+                          <input
+                            type="checkbox"
+                            checked={checked}
+                            onChange={() => {
+                              setDeleteColumnAlsoFrom((prev) => {
+                                const next = new Set(prev);
+                                if (next.has(key)) next.delete(key);
+                                else next.add(key);
+                                return next;
+                              });
+                            }}
+                          />
+                          <span>
+                            Таблица «{occ.tableTitle}», столбец №{occ.columnIndex + 1}
+                          </span>
+                        </label>
+                      </li>
+                    );
+                  })}
+                </ul>
+              </div>
+            ) : (
+              <p className={styles.deleteColumnNoOthers}>В других таблицах этот пользователь не встречается.</p>
+            )}
+            <div className={styles.deleteColumnActions}>
+              <button
+                type="button"
+                className={styles.deleteColumnBtnSecondary}
+                onClick={() => {
+                  setDeleteColumnModal(null);
+                  setDeleteColumnAlsoFrom(new Set());
+                }}
+              >
+                Отмена
+              </button>
+              <button
+                type="button"
+                className={styles.deleteColumnBtnPrimary}
+                onClick={() => applyDeleteColumn(deleteColumnAlsoFrom)}
+              >
+                Удалить
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       <div className={styles.userCreatePopupStack}>
         {userCreatePopups.map((popup, index) => (
           <div
@@ -1313,19 +2045,27 @@ const TradePage = () => {
         <div className={styles.colorLegendOverlay} onClick={() => setColorLegendOpen(false)}>
           <div className={styles.colorLegendModal} onClick={(e) => e.stopPropagation()}>
             <h3 className={styles.colorLegendTitle}>Значения цветов</h3>
-            <div className={styles.colorLegendGrid}>
-              <div>
-                <div className={`${styles.colorLegendTag} ${styles.colorLegendUa}`}>Украинец</div>
+
+            <section className={styles.colorLegendSection}>
+              <h4 className={styles.colorLegendSectionTitle}>
+                Только для соотношений (ячейки с соотношениями)
+              </h4>
+              <div className={styles.colorLegendGrid}>
                 <div className={`${styles.colorLegendTag} ${styles.colorLegendSuper}`}>Супер выгодно</div>
                 <div className={`${styles.colorLegendTag} ${styles.colorLegendMedium}`}>Средне выгодно</div>
                 <div className={`${styles.colorLegendTag} ${styles.colorLegendLast}`}>Последний вариант</div>
-              </div>
-              <div>
                 <div className={`${styles.colorLegendTag} ${styles.colorLegendPriceTop}`}>Моя цена топ</div>
                 <div className={`${styles.colorLegendTag} ${styles.colorLegendPriceMid}`}>Моя цена средняя</div>
                 <div className={`${styles.colorLegendTag} ${styles.colorLegendPriceNone}`}>Без описания</div>
               </div>
-              <div>
+            </section>
+
+            <section className={styles.colorLegendSection}>
+              <h4 className={styles.colorLegendSectionTitle}>
+                Только для блока пользователя (ник, малый блок)
+              </h4>
+              <div className={styles.colorLegendGrid}>
+                <div className={`${styles.colorLegendTag} ${styles.colorLegendUa}`}>Украинец</div>
                 <div className={`${styles.colorLegendTag} ${styles.colorLegendFast}`}>Быстро</div>
                 <div className={`${styles.colorLegendTag} ${styles.colorLegendStopped}`}>Перестал трейдиться</div>
                 <div className={`${styles.colorLegendTag} ${styles.colorLegendGone}`}>Пропал</div>
@@ -1335,7 +2075,101 @@ const TradePage = () => {
                 <div className={`${styles.colorLegendTag} ${styles.colorLegendBadReviews}`}>Плохие отзывы</div>
                 <div className={`${styles.colorLegendTag} ${styles.colorLegendCarry}`}>carry</div>
               </div>
-            </div>
+            </section>
+          </div>
+        </div>
+      )}
+      
+      {activeHeaderColorPickerKey && headerPalettePosition &&
+        createPortal(
+          <div
+            ref={headerPaletteRef}
+            className={styles.headerPaletteFloating}
+            style={{ top: headerPalettePosition.top, left: headerPalettePosition.left }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            {(() => {
+              const sep = activeHeaderColorPickerKey.indexOf('::');
+              const tableTitle = activeHeaderColorPickerKey.slice(0, sep);
+              const userId = activeHeaderColorPickerKey.slice(sep + 2);
+              const currentTag = getUserHeaderColorTag(tableTitle, userId);
+              return (
+                <>
+                  {HEADER_COLOR_OPTIONS.map((option) => (
+                    <button
+                      key={option.value}
+                      type="button"
+                      className={`${styles.headerColorTagBtnBig} ${styles[getHeaderColorClass(option.value)]} ${currentTag === option.value ? styles.headerColorTagBtnActive : ''}`}
+                      onClick={() => {
+                        handleUserHeaderColorTagChange(tableTitle, userId, option.value);
+                        setActiveHeaderColorPickerKey(null);
+                        setHeaderPalettePosition(null);
+                      }}
+                      title={option.title}
+                    />
+                  ))}
+                  <button
+                    type="button"
+                    className={styles.headerColorClearBtnBig}
+                    onClick={() => {
+                      handleUserHeaderColorTagChange(tableTitle, userId, '');
+                      setActiveHeaderColorPickerKey(null);
+                      setHeaderPalettePosition(null);
+                    }}
+                    title="Сбросить цвет"
+                  >
+                    ×
+                  </button>
+                </>
+              );
+            })()}
+          </div>,
+          document.body,
+        )}
+      {activeMoveCategoryKey && moveCategoryDropdownPosition &&
+        createPortal(
+          <div
+            ref={moveCategoryDropdownRef}
+            className={styles.moveCategoryDropdown}
+            style={{ top: moveCategoryDropdownPosition.top, left: moveCategoryDropdownPosition.left }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            {(() => {
+              const userId = activeMoveCategoryKey.slice(activeMoveCategoryKey.indexOf('::') + 2);
+              const currentCategory = users.find((u) => u.id === userId)?.category ?? 'main';
+              return CATEGORY_TABS.map((tab) => (
+                <button
+                  key={tab.key}
+                  type="button"
+                  className={`${styles.moveCategoryOption} ${currentCategory === tab.key ? styles.moveCategoryOptionActive : ''}`}
+                  onClick={() => {
+                    setUsers((prev) =>
+                      prev.map((u) => (u.id === userId ? { ...u, category: tab.key } : u)),
+                    );
+                    setActiveMoveCategoryKey(null);
+                    setMoveCategoryDropdownPosition(null);
+                  }}
+                >
+                  {tab.label}
+                </button>
+              ));
+            })()}
+          </div>,
+          document.body,
+        )}
+      {editModeBlockedPopup && (
+        <div className={styles.editModeBlockedOverlay} onClick={() => setEditModeBlockedPopup(false)}>
+          <div className={styles.editModeBlockedPopup} onClick={(e) => e.stopPropagation()}>
+            <p className={styles.editModeBlockedText}>
+              Снимите фильтр «Я даю» (выберите «— все таблицы —»), чтобы войти в режим редактирования.
+            </p>
+            <button
+              type="button"
+              className={styles.editModeBlockedBtn}
+              onClick={() => setEditModeBlockedPopup(false)}
+            >
+              Понятно
+            </button>
           </div>
         </div>
       )}

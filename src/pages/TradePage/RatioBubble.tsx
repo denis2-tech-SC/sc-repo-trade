@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { PencilIcon, CrossIcon, CheckIcon, CloudIcon } from './icons';
+import { normalizeRatioInput } from './ratioUtils';
 import styles from './RatioBubble.module.css';
 
 type Props = {
@@ -41,6 +42,14 @@ type Props = {
       | 'carry',
   ) => void;
   isEditMode: boolean;
+  maskContent?: boolean;
+  /** Для навигации Enter/Tab: идентификаторы ячейки */
+  dataTableTitle?: string;
+  dataItem?: string;
+  dataUserId?: string;
+  onRatioNavigate?: (e: React.KeyboardEvent, direction: 'down' | 'right') => void;
+  onRowFocus?: () => void;
+  onRowBlur?: () => void;
 };
 
 type ColorTag =
@@ -58,20 +67,14 @@ type ColorTag =
   | 'bad_reviews'
   | 'carry';
 
+/** Цвета только для соотношений (ячейки с соотношениями). */
 const COLOR_OPTIONS: Array<{ value: ColorTag; title: string }> = [
-  { value: 'ua', title: 'Украинец' },
   { value: 'super', title: 'Супер выгодно' },
   { value: 'medium', title: 'Средне выгодно' },
   { value: 'last', title: 'Последний вариант' },
   { value: 'price_top', title: 'Моя цена топ' },
   { value: 'price_mid', title: 'Моя цена средняя' },
   { value: 'price_none', title: 'Без описания' },
-  { value: 'fast', title: 'Быстро' },
-  { value: 'stopped', title: 'Перестал трейдиться' },
-  { value: 'gone', title: 'Пропал' },
-  { value: 'other_trades', title: 'Есть другие трейды ниже в один столбец' },
-  { value: 'bad_reviews', title: 'Плохие отзывы' },
-  { value: 'carry', title: 'carry' },
 ];
 
 const getColorClass = (tag: string): string => {
@@ -116,74 +119,115 @@ const RatioBubble = ({
   onNoteChange,
   onColorTagChange,
   isEditMode,
+  maskContent = false,
+  dataTableTitle,
+  dataItem,
+  dataUserId,
+  onRatioNavigate,
+  onRowFocus,
+  onRowBlur,
 }: Props) => {
   const [modalOpen, setModalOpen] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
   const [colorPickerOpen, setColorPickerOpen] = useState(false);
   const [palettePos, setPalettePos] = useState({ top: 0, left: 0 });
   const [editValue, setEditValue] = useState(note);
+  const [inputFlashWarning, setInputFlashWarning] = useState(false);
+  const [contextMenuWarningMessage, setContextMenuWarningMessage] = useState<string | null>(null);
+  const [warningPopupPos, setWarningPopupPos] = useState({ top: 0, left: 0 });
+  const [contextBarOpen, setContextBarOpen] = useState(false);
+  const [contextBarPos, setContextBarPos] = useState({ top: 0, left: 0 });
   const modalRef = useRef<HTMLDivElement>(null);
-  const colorButtonRef = useRef<HTMLButtonElement>(null);
+  const contextBarRef = useRef<HTMLDivElement>(null);
   const paletteRef = useRef<HTMLDivElement>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
 
-  useEffect(() => {
-    if (modalOpen) setEditValue(note);
-  }, [modalOpen, note]);
+  const paletteWidth = 268;
+  const paletteHeight = 52;
+  const contextBarWidth = 72;
+  const contextBarHeight = 36;
+  const screenPadding = 8;
 
-  useEffect(() => {
-    const updatePalettePosition = () => {
-      if (!colorButtonRef.current) return;
-      const rect = colorButtonRef.current.getBoundingClientRect();
-      const paletteWidth = 166;
-      const paletteHeight = 48;
-      const screenPadding = 8;
+  const openContextBarAboveInput = () => {
+    const input = inputRef.current;
+    if (!input) return;
+    const rect = input.getBoundingClientRect();
+    const left = Math.max(screenPadding, Math.min(rect.left + rect.width / 2 - contextBarWidth / 2, window.innerWidth - contextBarWidth - screenPadding));
+    const top = Math.max(screenPadding, rect.top - contextBarHeight - 2);
+    setContextBarPos({ top, left });
+    setContextBarOpen(true);
+  };
 
-      let left = rect.left;
-      if (left + paletteWidth > window.innerWidth - screenPadding) {
-        left = window.innerWidth - paletteWidth - screenPadding;
-      }
-      if (left < screenPadding) left = screenPadding;
+  const openColorPaletteAboveBar = () => {
+    if (!contextBarRef.current) return;
+    const rect = contextBarRef.current.getBoundingClientRect();
+    let left = rect.left + rect.width / 2 - paletteWidth / 2;
+    let top = rect.top - paletteHeight - 2;
+    if (left + paletteWidth > window.innerWidth - screenPadding) left = window.innerWidth - paletteWidth - screenPadding;
+    if (left < screenPadding) left = screenPadding;
+    if (top < screenPadding) top = screenPadding;
+    if (top + paletteHeight > window.innerHeight - screenPadding) top = window.innerHeight - paletteHeight - screenPadding;
+    setPalettePos({ top, left });
+    setColorPickerOpen(true);
+  };
 
-      let top = rect.bottom + 6;
-      if (top + paletteHeight > window.innerHeight - screenPadding) {
-        top = rect.top - paletteHeight - 6;
-      }
-      if (top < screenPadding) top = screenPadding;
-
-      setPalettePos({ top, left });
-    };
-
-    if (colorPickerOpen) {
-      updatePalettePosition();
-      window.addEventListener('resize', updatePalettePosition);
-      window.addEventListener('scroll', updatePalettePosition, true);
+  const showWarningPopup = (message: string) => {
+    const input = inputRef.current;
+    if (input) {
+      const rect = input.getBoundingClientRect();
+      const popupWidth = 220;
+      setWarningPopupPos({
+        left: Math.max(8, Math.min(rect.left + rect.width / 2 - popupWidth / 2, window.innerWidth - popupWidth - 8)),
+        top: rect.top - 8,
+      });
     }
+    setInputFlashWarning(true);
+    setContextMenuWarningMessage(message);
+    window.setTimeout(() => setInputFlashWarning(false), 80);
+    window.setTimeout(() => setInputFlashWarning(true), 160);
+    window.setTimeout(() => setInputFlashWarning(false), 240);
+    window.setTimeout(() => setContextMenuWarningMessage(null), 2500);
+  };
 
+  const handleInputContextMenu = (e: React.MouseEvent<HTMLInputElement>) => {
+    e.preventDefault();
+    if (isEditMode) {
+      showWarningPopup('В режиме редактирования используйте кнопку цвета рядом с полем.');
+      return;
+    }
+    if (ratio.trim() === '') {
+      showWarningPopup('Сначала заполните поле.');
+      return;
+    }
+    openContextBarAboveInput();
+  };
+
+  useEffect(() => {
     const handleClickOutside = (e: MouseEvent) => {
-      if (modalOpen && modalRef.current && !modalRef.current.contains(e.target as Node)) {
+      const target = e.target as Node;
+      if (modalOpen && modalRef.current && !modalRef.current.contains(target)) {
         if (isEditing) {
           setEditValue(note);
           setIsEditing(false);
         }
         setModalOpen(false);
       }
-      if (
-        colorPickerOpen &&
-        paletteRef.current &&
-        !paletteRef.current.contains(e.target as Node) &&
-        colorButtonRef.current &&
-        !colorButtonRef.current.contains(e.target as Node)
-      ) {
-        setColorPickerOpen(false);
+      if (colorPickerOpen && paletteRef.current && !paletteRef.current.contains(target)) {
+        const onContextBar = contextBarRef.current && contextBarRef.current.contains(target);
+        const onInput = inputRef.current && inputRef.current.contains(target);
+        if (!onContextBar && !onInput) {
+          setColorPickerOpen(false);
+          setContextBarOpen(false);
+        }
+      }
+      if (contextBarOpen && !colorPickerOpen && contextBarRef.current && !contextBarRef.current.contains(target)) {
+        const onInput = inputRef.current && inputRef.current.contains(target);
+        if (!onInput) setContextBarOpen(false);
       }
     };
     document.addEventListener('mousedown', handleClickOutside);
-    return () => {
-      document.removeEventListener('mousedown', handleClickOutside);
-      window.removeEventListener('resize', updatePalettePosition);
-      window.removeEventListener('scroll', updatePalettePosition, true);
-    };
-  }, [modalOpen, isEditing, note, colorPickerOpen]);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, [modalOpen, isEditing, note, colorPickerOpen, contextBarOpen]);
 
   const handleSave = () => {
     onNoteChange(editValue.trim());
@@ -196,72 +240,118 @@ const RatioBubble = ({
     setIsEditing(false);
   };
 
+  const handleInputKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (!onRatioNavigate || isEditMode || maskContent) return;
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      onRatioNavigate(e, 'down');
+    } else if (e.key === 'Tab' && !e.shiftKey) {
+      e.preventDefault();
+      onRatioNavigate(e, 'right');
+    }
+  };
+
   return (
-    <div className={styles.wrap}>
-      <input
-        type="text"
-        className={`${styles.ratioInput} ${styles[getInputColorClass(colorTag)] ?? ''}`}
-        placeholder=""
-        value={ratio}
-        onChange={(e) => onRatioChange(e.target.value)}
-        readOnly={isEditMode}
-      />
-      {isEditMode && (
-        <div className={styles.colorPickerWrap}>
-          <button
-            type="button"
-            ref={colorButtonRef}
-            className={`${styles.currentColorBtn} ${
-              colorTag ? styles[getColorClass(colorTag)] : styles.currentColorBtnEmpty
-            }`}
-            onClick={() => setColorPickerOpen((v) => !v)}
-            title="Выбрать цвет"
-          />
-          {colorPickerOpen &&
-            createPortal(
-            <div
-              ref={paletteRef}
-              className={`${styles.colorPalette} ${styles.colorPaletteFloating}`}
-              style={{ top: palettePos.top, left: palettePos.left }}
+    <div className={`${styles.wrap} ${note ? styles.wrapHasNote : ''}`}>
+      <div className={styles.ratioInputWrap}>
+        <input
+          ref={inputRef}
+          type="text"
+          className={`${styles.ratioInput} ${styles[getInputColorClass(colorTag)] ?? ''} ${inputFlashWarning ? styles.ratioInputFlash : ''}`}
+          placeholder=""
+          value={maskContent ? '**:**' : ratio}
+          onChange={(e) => onRatioChange(normalizeRatioInput(e.target.value))}
+          onFocus={onRowFocus}
+          onBlur={onRowBlur}
+          onKeyDown={handleInputKeyDown}
+          onContextMenu={handleInputContextMenu}
+          readOnly={isEditMode || maskContent}
+          title="ПКМ — выбор цвета соотношения. Enter — вниз, Tab — вправо"
+          {...(dataTableTitle != null && { 'data-ratio-table': dataTableTitle })}
+          {...(dataItem != null && { 'data-ratio-item': dataItem })}
+          {...(dataUserId != null && { 'data-ratio-user': dataUserId })}
+        />
+      </div>
+      {contextMenuWarningMessage &&
+        createPortal(
+          <div
+            className={styles.contextMenuWarningPopupFixed}
+            style={{ top: warningPopupPos.top, left: warningPopupPos.left }}
+            role="alert"
+          >
+            {contextMenuWarningMessage}
+          </div>,
+          document.body,
+        )}
+      {contextBarOpen &&
+        !isEditMode &&
+        createPortal(
+          <div
+            ref={contextBarRef}
+            className={styles.contextBarWrap}
+            style={{ top: contextBarPos.top, left: contextBarPos.left }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <button
+              type="button"
+              className={`${styles.contextBarColorBtn} ${
+                colorTag ? styles[getColorClass(colorTag)] : styles.contextBarColorBtnEmpty
+              }`}
+              onClick={() => openColorPaletteAboveBar()}
+              title="Выбрать цвет"
+            />
+            <button
+              type="button"
+              className={`${styles.contextBarCloudBtn} ${note ? styles.contextBarCloudBtnHasNote : ''}`}
+              onClick={() => {
+                setEditValue(note);
+                setModalOpen(true);
+                setContextBarOpen(false);
+              }}
+              title={note || 'Комментарий'}
             >
-              {COLOR_OPTIONS.map((option) => (
-                <button
-                  key={option.value}
-                  type="button"
-                  className={`${styles.colorTagBtn} ${styles[getColorClass(option.value)]} ${
-                    colorTag === option.value ? styles.colorTagBtnActive : ''
-                  }`}
-                  onClick={() => {
-                    onColorTagChange(option.value);
-                    setColorPickerOpen(false);
-                  }}
-                  title={option.title}
-                />
-              ))}
+              <CloudIcon />
+            </button>
+          </div>,
+          document.body,
+        )}
+      {colorPickerOpen &&
+        createPortal(
+          <div
+            ref={paletteRef}
+            className={`${styles.colorPalette} ${styles.colorPaletteFloating}`}
+            style={{ top: palettePos.top, left: palettePos.left }}
+          >
+            {COLOR_OPTIONS.map((option) => (
               <button
+                key={option.value}
                 type="button"
-                className={styles.colorClearBtn}
+                className={`${styles.colorTagBtn} ${styles[getColorClass(option.value)]} ${
+                  colorTag === option.value ? styles.colorTagBtnActive : ''
+                }`}
                 onClick={() => {
-                  onColorTagChange('');
+                  onColorTagChange(option.value);
                   setColorPickerOpen(false);
+                  setContextBarOpen(false);
                 }}
-                title="Сбросить цвет"
-              >
-                ×
-              </button>
-            </div>,
-            document.body,
-          )}
-        </div>
-      )}
-      <button
-        type="button"
-        className={`${styles.bubbleBtn} ${note ? styles.bubbleBtnHasNote : ''}`}
-        onClick={() => setModalOpen(true)}
-        title={note || undefined}
-      >
-        <CloudIcon />
-      </button>
+                title={option.title}
+              />
+            ))}
+            <button
+              type="button"
+              className={styles.colorClearBtn}
+              onClick={() => {
+                onColorTagChange('');
+                setColorPickerOpen(false);
+                setContextBarOpen(false);
+              }}
+              title="Сбросить цвет"
+            >
+              ×
+            </button>
+          </div>,
+          document.body,
+        )}
 
       {modalOpen && (
         <div className={styles.modalOverlay}>
@@ -303,7 +393,10 @@ const RatioBubble = ({
                 <button
                   type="button"
                   className={styles.editBtn}
-                  onClick={() => setIsEditing(true)}
+                  onClick={() => {
+                    setEditValue(note);
+                    setIsEditing(true);
+                  }}
                   title="Редактировать"
                 >
                   <PencilIcon />

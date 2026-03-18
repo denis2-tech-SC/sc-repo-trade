@@ -13,7 +13,10 @@
   border-radius: 12px;
   padding: 1.25rem;
   min-width: 320px;
-  max-width: 400px;
+  max-width: 480px;
+  max-height: calc(100vh - 2rem);
+  display: flex;
+  flex-direction: column;
   box-shadow: 0 12px 40px rgba(0, 0, 0, 0.2);
 }
 
@@ -53,6 +56,260 @@
 .input:focus {
   outline: none;
   border-color: #646cff;
+}
+
+.tableSection {
+  margin-top: 0.5rem;
+  padding-top: 0.75rem;
+  border-top: 1px solid #e5e7eb;
+}
+
+.tableSectionTitle {
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: #374151;
+  margin-bottom: 0.5rem;
+}
+
+.tableRatiosList {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+  max-height: 56vh;
+  overflow-y: auto;
+}
+
+.tableRatioRow {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.tableRatioLabel {
+  flex: 0 1 42%;
+  min-width: 0;
+  font-size: 0.85rem;
+  font-weight: 500;
+  color: #333;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  padding: 0.2rem 0;
+}
+
+.tableRatioLabel .itemNameFull {
+  display: inline;
+}
+
+.tableRatioLabel .itemNameShort {
+  display: none;
+}
+
+@media (max-width: 768px) {
+  .tableRatioLabel .itemNameFull {
+    display: none;
+  }
+  .tableRatioLabel .itemNameShort {
+    display: inline;
+  }
+}
+
+.tableRatioRow .input {
+  flex: 1;
+  min-width: 0;
+  max-width: 80px;
+}
+
+.tableRatioIcons {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+  flex-shrink: 0;
+}
+
+.tableRatioColorBtn {
+  width: 20px;
+  height: 20px;
+  border: 1px solid #94a3b8;
+  border-radius: 999px;
+  padding: 0;
+  cursor: pointer;
+  background: #fff;
+  flex-shrink: 0;
+}
+
+.tableRatioColorBtn:hover {
+  filter: brightness(0.98);
+}
+
+.tableRatioCloudBtn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  padding: 0;
+  border: none;
+  border-radius: 6px;
+  background: #e3f2fd;
+  color: #1565c0;
+  cursor: pointer;
+  flex-shrink: 0;
+}
+
+.tableRatioCloudBtn:hover {
+  background: #bbdefb;
+}
+
+.tableRatioCloudBtnHasNote {
+  background: #90caf9;
+  color: #0d47a1;
+}
+
+/* Палитра цвета соотношений в модалке */
+.ratioColorPalette {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  padding: 6px;
+  background: #fff;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  z-index: 202;
+}
+
+.ratioColorPaletteFloating {
+  position: fixed;
+}
+
+.ratioColorTagBtn {
+  width: 20px;
+  height: 20px;
+  border: none;
+  border-radius: 4px;
+  padding: 0;
+  cursor: pointer;
+}
+
+.ratioColorTagBtn:hover {
+  filter: brightness(1.05);
+}
+
+.ratioColorTagBtnActive {
+  box-shadow: 0 0 0 2px rgba(15, 23, 42, 0.35);
+}
+
+.ratioColorClearBtn {
+  width: 20px;
+  height: 20px;
+  border: 1px solid #cbd5e1;
+  background: #fff;
+  color: #6b7280;
+  border-radius: 4px;
+  padding: 0;
+  font-size: 14px;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.ratioColorClearBtn:hover {
+  background: #f3f4f6;
+}
+
+.colorTagSuper { background: #dcfce7; }
+.colorTagMedium { background: #22c55e; }
+.colorTagLast { background: #166534; }
+.colorTagPriceTop { background: #ede9fe; }
+.colorTagPriceMid { background: #8b5cf6; }
+.colorTagPriceNone { background: #581c87; }
+
+/* Модалка примечания в форме нового игрока */
+.noteModalOverlay {
+  position: fixed;
+  inset: 0;
+  z-index: 201;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0, 0, 0, 0.4);
+}
+
+.noteModal {
+  background: #fff;
+  border-radius: 12px;
+  padding: 1rem;
+  min-width: 260px;
+  max-width: 90vw;
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.2);
+}
+
+.noteModalTextarea {
+  width: 100%;
+  min-height: 80px;
+  padding: 0.5rem;
+  font-size: 0.9rem;
+  border: 1px solid #ccc;
+  border-radius: 8px;
+  font-family: inherit;
+  resize: vertical;
+  box-sizing: border-box;
+}
+
+.noteModalTextarea:focus {
+  outline: none;
+  border-color: #646cff;
+}
+
+.noteModalActions {
+  display: flex;
+  gap: 0.5rem;
+  margin-top: 0.75rem;
+  justify-content: flex-end;
+}
+
+.noteModalBtn {
+  width: 36px;
+  height: 36px;
+  padding: 0;
+  border: none;
+  border-radius: 8px;
+  background: #4caf50;
+  color: #fff;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.noteModalBtn:hover {
+  background: #43a047;
+}
+
+.noteModalBtnCancel {
+  background: #e0e0e0;
+  color: #333;
+}
+
+.noteModalBtnCancel:hover {
+  background: #d0d0d0;
+}
+
+/* Стили названий предметов как в таблице */
+.itemPolarisBits { color: #f51b1b; }
+.itemWikeloFavor { color: #3bdbed; }
+.itemCarinite { color: #cc1433; }
+.itemValakkarPearl {
+  background-color: #179c21;
+  color: #fff;
+  padding: 0.2rem 0.4rem;
+  border-radius: 4px;
+}
+.itemCompBoard {
+  color: #fff;
+  background-color: #e65100;
+  padding: 0.2rem 0.4rem;
+  border-radius: 4px;
 }
 
 .actions {
@@ -96,4 +353,67 @@
 
 .btnCancel:hover {
   background: #d0d0d0;
+}
+
+/* Подтверждение сброса при клике вне модалки */
+.resetConfirmOverlay {
+  position: fixed;
+  inset: 0;
+  z-index: 201;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0, 0, 0, 0.5);
+}
+
+.resetConfirmBox {
+  background: #fff;
+  border-radius: 12px;
+  padding: 1.25rem;
+  min-width: 280px;
+  max-width: 90vw;
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.25);
+}
+
+.resetConfirmTitle {
+  margin: 0 0 1rem;
+  font-size: 1rem;
+  font-weight: 600;
+  color: #333;
+}
+
+.resetConfirmActions {
+  display: flex;
+  gap: 0.5rem;
+  justify-content: flex-end;
+}
+
+.resetConfirmBtnDanger {
+  padding: 0.5rem 1rem;
+  font-size: 0.9rem;
+  font-weight: 500;
+  border: none;
+  border-radius: 8px;
+  background: #d32f2f;
+  color: #fff;
+  cursor: pointer;
+}
+
+.resetConfirmBtnDanger:hover {
+  background: #b71c1c;
+}
+
+.resetConfirmBtnCancel {
+  padding: 0.5rem 1rem;
+  font-size: 0.9rem;
+  font-weight: 500;
+  border: 1px solid #ccc;
+  border-radius: 8px;
+  background: #fff;
+  color: #333;
+  cursor: pointer;
+}
+
+.resetConfirmBtnCancel:hover {
+  background: #f5f5f5;
 }
