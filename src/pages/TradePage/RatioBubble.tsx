@@ -266,7 +266,7 @@ const RatioBubble = ({
           onKeyDown={handleInputKeyDown}
           onContextMenu={handleInputContextMenu}
           readOnly={isEditMode || maskContent}
-          title="ПКМ — выбор цвета соотношения. Enter — вниз, Tab — вправо"
+          title={(note ?? '').trim() !== '' ? note : 'ПКМ — выбор цвета соотношения. Enter — вниз, Tab — вправо'}
           {...(dataTableTitle != null && { 'data-ratio-table': dataTableTitle })}
           {...(dataItem != null && { 'data-ratio-item': dataItem })}
           {...(dataUserId != null && { 'data-ratio-user': dataUserId })}

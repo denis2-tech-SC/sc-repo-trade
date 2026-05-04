@@ -6,7 +6,6 @@ import { getItemStyleClass, getShortItemName } from './itemStyles';
 import RatioBubble from './RatioBubble';
 import UserModal from './UserModal';
 import {
-  checkSimilarNicknamesInTable,
   rearrangeSlotsByOtherTables,
   type RearrangedSlotsResult,
 } from './tableNicknameSortUtils';
@@ -108,6 +107,7 @@ const DEFAULT_USERS: User[] = TABLE_DEFINITIONS.map((_, index) => {
 });
 
 type TableUserSlots = Record<string, Array<UserId | null>>;
+type TableUsersByCategory = Record<TradeCategory, TableUserSlots>;
 type ColorTag =
   | ''
   | 'ua'
@@ -140,9 +140,10 @@ type RatioNotes = Record<string, Record<UserId, Record<string, string>>>;
 type RatioColors = Record<string, Record<UserId, Record<string, string>>>;
 /** Цвет фона хедера пользователя: tableTitle -> userId -> tag. */
 type UserHeaderColors = Record<string, Record<UserId, string>>;
-type TradeUsersApiPayload = {
+  type TradeUsersApiPayload = {
   users?: User[];
   tableUsers?: TableUserSlots;
+  tableUsersByCategory?: TableUsersByCategory;
   ratioOverrides?: RatioOverrides;
   ratioNotes?: RatioNotes;
   ratioColors?: RatioColors;
@@ -165,7 +166,12 @@ const HEADER_COLOR_OPTIONS: Array<{ value: ColorTag; title: string }> = [
 const TradePage = () => {
   const [items, setItems] = useState<string[]>(() => [...TEMPLATE_ITEMS]);
   const [users, setUsers] = useState<User[]>(() => [...DEFAULT_USERS]);
-  const [tableUsers, setTableUsers] = useState<TableUserSlots>(() => ({ ...DEFAULT_TABLE_USERS }));
+  const [tableUsersByCategory, setTableUsersByCategory] = useState<TableUsersByCategory>(() => ({
+    main: { ...DEFAULT_TABLE_USERS },
+    less: {},
+    vacation: {},
+    completed: {},
+  }));
   const [newItemInput, setNewItemInput] = useState('');
   const [selectedTableName, setSelectedTableName] = useState<string>('');
   const [activeCategory, setActiveCategory] = useState<TradeCategory>('main');
@@ -187,6 +193,28 @@ const TradePage = () => {
   const [lastCreatedAccountLink, setLastCreatedAccountLink] = useState('');
   const [searchInput, setSearchInput] = useState('');
   const [activeSearch, setActiveSearch] = useState('');
+  const [collapsedTables, setCollapsedTables] = useState<Record<string, boolean>>({});
+  const [categoryMismatchModal, setCategoryMismatchModal] = useState<null | {
+    tableTitle: string;
+    existingUserId: UserId;
+    existingNickname: string;
+    existingCategory: TradeCategory;
+    existingCategories: TradeCategory[];
+    existingLocations: Array<{ tableTitle: string; columnIndex: number }>;
+    pendingData: UserFormData;
+    initialRatios?: Record<string, string>;
+    initialRatioNotes?: Record<string, string>;
+    initialRatioColors?: Record<string, string>;
+  }>(null);
+  const [categoryJumpModal, setCategoryJumpModal] = useState<null | {
+    tableTitle: string;
+    nickname: string;
+    categories: TradeCategory[];
+    pendingData: UserFormData;
+    initialRatios?: Record<string, string>;
+    initialRatioNotes?: Record<string, string>;
+    initialRatioColors?: Record<string, string>;
+  }>(null);
   const [activeHeaderColorPickerKey, setActiveHeaderColorPickerKey] = useState<string | null>(null);
   const [activeMoveCategoryKey, setActiveMoveCategoryKey] = useState<string | null>(null);
   const [moveCategoryDropdownPosition, setMoveCategoryDropdownPosition] = useState<{ top: number; left: number } | null>(null);
@@ -226,6 +254,11 @@ const TradePage = () => {
   const applySearchFilter = () => {
     const trimmed = searchInput.trim();
     setActiveSearch(trimmed);
+  };
+
+  const isTableCollapsed = (tableTitle: string): boolean => !!collapsedTables[tableTitle];
+  const toggleTableCollapsed = (tableTitle: string) => {
+    setCollapsedTables((prev) => ({ ...prev, [tableTitle]: !prev[tableTitle] }));
   };
 
   const removeItem = (item: string) => {
@@ -523,13 +556,52 @@ const TradePage = () => {
     }, 3000);
   };
 
+  const applyInitialDataForUserInTable = (
+    tableTitle: string,
+    userId: UserId,
+    initialRatios?: Record<string, string>,
+    initialRatioNotes?: Record<string, string>,
+    initialRatioColors?: Record<string, string>,
+  ) => {
+    if (initialRatios && Object.keys(initialRatios).length > 0) {
+      setRatioOverrides((prev) => ({
+        ...prev,
+        [tableTitle]: {
+          ...(prev[tableTitle] ?? {}),
+          [userId]: { ...(prev[tableTitle]?.[userId] ?? {}), ...initialRatios },
+        },
+      }));
+    }
+    if (initialRatioNotes && Object.keys(initialRatioNotes).length > 0) {
+      setRatioNotes((prev) => ({
+        ...prev,
+        [tableTitle]: {
+          ...(prev[tableTitle] ?? {}),
+          [userId]: { ...(prev[tableTitle]?.[userId] ?? {}), ...initialRatioNotes },
+        },
+      }));
+    }
+    if (initialRatioColors && Object.keys(initialRatioColors).length > 0) {
+      setRatioColors((prev) => ({
+        ...prev,
+        [tableTitle]: {
+          ...(prev[tableTitle] ?? {}),
+          [userId]: { ...(prev[tableTitle]?.[userId] ?? {}), ...initialRatioColors },
+        },
+      }));
+    }
+  };
+
   const addUserToTable = (
     tableTitle: string,
     data: UserFormData,
     initialRatios?: Record<string, string>,
     initialRatioNotes?: Record<string, string>,
     initialRatioColors?: Record<string, string>,
+    categoryOverride?: TradeCategory,
   ): void | { reason: 'similar_nickname'; similarNickname: string; locations: Array<{ tableTitle: string; columnIndex: number }> } => {
+    const targetCategory = categoryOverride ?? activeCategory;
+    const targetTables = tableUsersByCategory[targetCategory] ?? {};
     const dataTrimmed: UserFormData = {
       nickname: (data.nickname ?? '').trim(),
       discordNickname: (data.discordNickname ?? '').trim(),
@@ -539,19 +611,19 @@ const TradePage = () => {
     const existingUser = users.find(
       (u) =>
         (u.nickname ?? '').toLowerCase() === nicknameLower &&
-        (u.category ?? 'main') === activeCategory,
+        (u.category ?? 'main') === targetCategory,
     );
     if (!existingUser) {
       const similarUser = users.find(
         (u) =>
-          (u.category ?? 'main') === activeCategory &&
+          (u.category ?? 'main') === targetCategory &&
           u.nickname !== dataTrimmed.nickname &&
           isSimilarNickname(dataTrimmed.nickname, u.nickname),
       );
       if (similarUser) {
         const locations: Array<{ tableTitle: string; columnIndex: number }> = [];
         orderedTables.forEach((t) => {
-          const slots = tableUsers[t.title] ?? [];
+          const slots = targetTables[t.title] ?? [];
           slots.forEach((slot, columnIndex) => {
             if (slot === similarUser.id) locations.push({ tableTitle: t.title, columnIndex });
           });
@@ -564,7 +636,7 @@ const TradePage = () => {
       }
     }
     const userId = existingUser?.id ?? createUserId(dataTrimmed.nickname);
-    const alreadyInCurrentTable = (tableUsers[tableTitle] ?? []).includes(userId);
+    const alreadyInCurrentTable = (targetTables[tableTitle] ?? []).includes(userId);
 
     if (!existingUser) {
       setUsers((prev) => [
@@ -574,15 +646,27 @@ const TradePage = () => {
           nickname: dataTrimmed.nickname,
           discordNickname: dataTrimmed.discordNickname,
           accountLink: dataTrimmed.accountLink,
-          category: activeCategory,
+          category: targetCategory,
         },
       ]);
     } else {
-      // Существующий пользователь: перезаписать новые/изменённые поля из формы (дискорд, ссылка, регистр ника) и сохранить в БД
+      // Существующий пользователь:
+      // - ник обновляем (в т.ч. регистр)
+      // - discord/link обновляем ТОЛЬКО если пользователь ввёл их (не пусто),
+      //   иначе сохраняем старые значения (не затираем пустыми).
+      const resolvedDiscord =
+        dataTrimmed.discordNickname.trim() !== ''
+          ? dataTrimmed.discordNickname
+          : (existingUser.discordNickname ?? '');
+      const resolvedAccountLink =
+        dataTrimmed.accountLink.trim() !== ''
+          ? dataTrimmed.accountLink
+          : (existingUser.accountLink ?? '');
+
       const hasNewData =
         dataTrimmed.nickname !== existingUser.nickname ||
-        dataTrimmed.discordNickname !== (existingUser.discordNickname ?? '') ||
-        dataTrimmed.accountLink !== (existingUser.accountLink ?? '');
+        resolvedDiscord !== (existingUser.discordNickname ?? '') ||
+        resolvedAccountLink !== (existingUser.accountLink ?? '');
       if (hasNewData) {
         setUsers((prev) =>
           prev.map((u) =>
@@ -590,8 +674,8 @@ const TradePage = () => {
               ? {
                   ...u,
                   nickname: dataTrimmed.nickname,
-                  discordNickname: dataTrimmed.discordNickname,
-                  accountLink: dataTrimmed.accountLink,
+                  discordNickname: resolvedDiscord,
+                  accountLink: resolvedAccountLink,
                 }
               : u,
           ),
@@ -599,9 +683,10 @@ const TradePage = () => {
       }
     }
 
-    setTableUsers((prev) => {
+    setTableUsersByCategory((allPrev) => {
+      const prev = allPrev[targetCategory] ?? {};
       const currentSlots = [...(prev[tableTitle] ?? [])];
-      if (currentSlots.includes(userId)) return prev;
+      if (currentSlots.includes(userId)) return allPrev;
 
       let targetColumnIndex = -1;
 
@@ -640,8 +725,11 @@ const TradePage = () => {
       }
 
       return {
-        ...prev,
-        [tableTitle]: currentSlots,
+        ...allPrev,
+        [targetCategory]: {
+          ...prev,
+          [tableTitle]: currentSlots,
+        },
       };
     });
 
@@ -708,12 +796,81 @@ const TradePage = () => {
     }
   };
 
+  const getUserLocations = (
+    userId: UserId,
+    category: TradeCategory,
+  ): Array<{ tableTitle: string; columnIndex: number }> => {
+    const tables = tableUsersByCategory[category] ?? {};
+    const result: Array<{ tableTitle: string; columnIndex: number }> = [];
+    for (const t of orderedTables) {
+      const slots = tables[t.title] ?? [];
+      slots.forEach((id, columnIndex) => {
+        if (id === userId) result.push({ tableTitle: t.title, columnIndex });
+      });
+    }
+    return result;
+  };
+
+  const moveUserToCategoryTailFromAllCategories = (userId: UserId, targetCategory: TradeCategory) => {
+    setTableUsersByCategory((allPrev) => {
+      const titles = orderedTables.map((t) => t.title);
+
+      // 1) Удаляем userId из всех категорий (везде ставим null)
+      const cleared: TableUsersByCategory = { ...allPrev };
+      (Object.keys(cleared) as TradeCategory[]).forEach((cat) => {
+        const tables = { ...(cleared[cat] ?? {}) };
+        titles.forEach((title) => {
+          const slots = Array.isArray(tables[title]) ? [...tables[title]] : [];
+          let changed = false;
+          for (let i = 0; i < slots.length; i += 1) {
+            if (slots[i] === userId) {
+              slots[i] = null;
+              changed = true;
+            }
+          }
+          if (changed) tables[title] = slots;
+        });
+        cleared[cat] = tables;
+      });
+
+      // 2) Вставляем в targetCategory в "хвостовой" столбец: первый полностью пустой, иначе новый справа.
+      const targetTables = { ...(cleared[targetCategory] ?? {}) };
+      const maxLen = titles.reduce((m, t) => Math.max(m, (targetTables[t] ?? []).length), 0);
+
+      const isColumnFullyEmpty = (col: number): boolean =>
+        titles.every((t) => {
+          const slots = targetTables[t] ?? [];
+          const v = slots[col];
+          return v == null || v === '';
+        });
+
+      let targetCol = -1;
+      for (let c = 0; c < maxLen; c += 1) {
+        if (isColumnFullyEmpty(c)) {
+          targetCol = c;
+          break;
+        }
+      }
+      if (targetCol < 0) targetCol = maxLen;
+
+      titles.forEach((t) => {
+        const slots = Array.isArray(targetTables[t]) ? [...targetTables[t]] : [];
+        while (slots.length <= targetCol) slots.push(null);
+        slots[targetCol] = userId;
+        targetTables[t] = slots;
+      });
+
+      cleared[targetCategory] = targetTables;
+      return cleared;
+    });
+  };
+
   const moveUserColumn = (
     tableTitle: string,
     columnIndex: number,
     direction: 'left' | 'right',
   ) => {
-    setTableUsers((prev) => {
+    setActiveTableUsers((prev) => {
       const targetIndex = direction === 'left' ? columnIndex - 1 : columnIndex + 1;
       if (columnIndex < 0 || targetIndex < 0) return prev;
 
@@ -767,7 +924,8 @@ const TradePage = () => {
       const next = { ...prev };
       const byTable = next[tableTitle];
       if (byTable && byTable[userId]) {
-        const { [userId]: _, ...rest } = byTable;
+        const rest = { ...byTable };
+        delete rest[userId];
         if (Object.keys(rest).length > 0) next[tableTitle] = rest;
         else delete next[tableTitle];
       }
@@ -777,7 +935,8 @@ const TradePage = () => {
       const next = { ...prev };
       const byTable = next[tableTitle];
       if (byTable && byTable[userId]) {
-        const { [userId]: _, ...rest } = byTable;
+        const rest = { ...byTable };
+        delete rest[userId];
         if (Object.keys(rest).length > 0) next[tableTitle] = rest;
         else delete next[tableTitle];
       }
@@ -787,7 +946,8 @@ const TradePage = () => {
       const next = { ...prev };
       const byTable = next[tableTitle];
       if (byTable && byTable[userId]) {
-        const { [userId]: _, ...rest } = byTable;
+        const rest = { ...byTable };
+        delete rest[userId];
         if (Object.keys(rest).length > 0) next[tableTitle] = rest;
         else delete next[tableTitle];
       }
@@ -797,7 +957,8 @@ const TradePage = () => {
       const next = { ...prev };
       const byTable = next[tableTitle];
       if (byTable && byTable[userId] !== undefined) {
-        const { [userId]: _, ...rest } = byTable;
+        const rest = { ...byTable };
+        delete rest[userId];
         if (Object.keys(rest).length > 0) next[tableTitle] = rest;
         else delete next[tableTitle];
       }
@@ -806,7 +967,7 @@ const TradePage = () => {
   };
 
   const removeUserColumn = (tableTitle: string, columnIndex: number, userId?: UserId) => {
-    setTableUsers((prev) => {
+    setActiveTableUsers((prev) => {
       const slots = [...(prev[tableTitle] ?? [])];
       if (columnIndex < 0 || columnIndex >= slots.length) return prev;
       slots[columnIndex] = null;
@@ -824,7 +985,7 @@ const TradePage = () => {
     excludeColumnIndex: number,
   ): DeleteColumnOccurrence[] => {
     const list: DeleteColumnOccurrence[] = [];
-    Object.entries(tableUsers).forEach(([tTitle, slots]) => {
+    Object.entries(activeTableUsers).forEach(([tTitle, slots]) => {
       if (!Array.isArray(slots)) return;
       slots.forEach((slot, idx) => {
         if (slot === userId && (tTitle !== excludeTableTitle || idx !== excludeColumnIndex)) {
@@ -842,7 +1003,7 @@ const TradePage = () => {
     columnIndex: number,
     userNickname: string,
   ) => {
-    const slots = tableUsers[tableTitle] ?? [];
+    const slots = activeTableUsers[tableTitle] ?? [];
     const userId = (columnIndex >= 0 && columnIndex < slots.length ? slots[columnIndex] : null) as UserId | null;
     if (!userId) return;
     const otherOccurrences = getOtherOccurrencesOfUser(userId, tableTitle, columnIndex);
@@ -866,7 +1027,7 @@ const TradePage = () => {
       const [t, c] = key.split(':');
       const colIdx = parseInt(c, 10);
       if (t && !Number.isNaN(colIdx)) {
-        const uid = (tableUsers[t] ?? [])[colIdx];
+        const uid = (activeTableUsers[t] ?? [])[colIdx];
         if (uid) toRemove.push({ tableTitle: t, columnIndex: colIdx, userId: uid });
       }
     });
@@ -898,8 +1059,17 @@ const TradePage = () => {
       ? null
       : orderedTables.find((table) => table.title === selectedTableName) ?? null;
 
+  const activeTableUsers = tableUsersByCategory[activeCategory] ?? {};
+
+  const setActiveTableUsers = (updater: (prev: TableUserSlots) => TableUserSlots) => {
+    setTableUsersByCategory((prev) => ({
+      ...prev,
+      [activeCategory]: updater(prev[activeCategory] ?? {}),
+    }));
+  };
+
   const getUserSlotsForTable = (tableTitle: string): Array<UserId | null> =>
-    tableUsers[tableTitle] ?? [];
+    activeTableUsers[tableTitle] ?? [];
 
   const getVisibleUserSlotsForTable = (tableTitle: string): Array<UserId | null> => {
     const baseSlots = getUserSlotsForTable(tableTitle);
@@ -913,7 +1083,9 @@ const TradePage = () => {
       if ((user.category ?? 'main') !== activeCategory) return null;
 
       // Если включён поиск, и у пользователя по всем видимым пунктам пустые инпуты — скрываем его.
-      if (activeSearch && tableItemsForFilter.length > 0) {
+      // В категориях "Отпуск/Завершено" пользователи могут не иметь заполненных значений,
+      // но должны оставаться видимыми.
+      if (activeSearch && tableItemsForFilter.length > 0 && activeCategory !== 'vacation' && activeCategory !== 'completed') {
         const hasAnyValue = tableItemsForFilter.some((item) => {
           const v = getRatio(tableTitle, user.id, item);
           return (v ?? '').trim() !== '';
@@ -952,7 +1124,7 @@ const TradePage = () => {
     : orderedTables.map((table) => ({ table, userSlots: getVisibleUserSlotsForTable(table.title) }));
 
   const linkedUserTableCount = orderedTables.reduce<Record<UserId, number>>((acc, table) => {
-    (tableUsers[table.title] ?? []).forEach((id) => {
+    (activeTableUsers[table.title] ?? []).forEach((id) => {
       if (!id) return;
       acc[id] = (acc[id] ?? 0) + 1;
     });
@@ -960,7 +1132,7 @@ const TradePage = () => {
   }, {});
   const linkedUserLocations: Record<UserId, Array<{ tableTitle: string; columnIndex: number }>> = {};
   orderedTables.forEach((t) => {
-    (tableUsers[t.title] ?? []).forEach((id, columnIndex) => {
+    (activeTableUsers[t.title] ?? []).forEach((id, columnIndex) => {
       if (!id) return;
       if (!linkedUserLocations[id]) linkedUserLocations[id] = [];
       linkedUserLocations[id].push({ tableTitle: t.title, columnIndex });
@@ -968,7 +1140,7 @@ const TradePage = () => {
   });
   const linkedByNicknameLocations: Record<string, Array<{ tableTitle: string; columnIndex: number }>> = {};
   orderedTables.forEach((t) => {
-    (tableUsers[t.title] ?? []).forEach((id, columnIndex) => {
+    (activeTableUsers[t.title] ?? []).forEach((id, columnIndex) => {
       if (!id) return;
       const user = usersById[id];
       if (!user) return;
@@ -978,7 +1150,7 @@ const TradePage = () => {
     });
   });
   const maxUserColumns = orderedTables.reduce(
-    (max, table) => Math.max(max, (tableUsers[table.title] ?? []).length),
+    (max, table) => Math.max(max, (activeTableUsers[table.title] ?? []).length),
     0,
   );
   const columnNicknameCount: Record<number, Record<string, number>> = {};
@@ -1019,7 +1191,12 @@ const TradePage = () => {
         const response = await fetch(`${API_BASE}/api/trade-table-users`);
         if (!response.ok) {
           setUsers([...DEFAULT_USERS]);
-          setTableUsers({ ...DEFAULT_TABLE_USERS });
+          setTableUsersByCategory({
+            main: { ...DEFAULT_TABLE_USERS },
+            less: {},
+            vacation: {},
+            completed: {},
+          });
           hasLoadedDbRef.current = true;
           return;
         }
@@ -1032,29 +1209,55 @@ const TradePage = () => {
               accountLink: u.accountLink ?? '',
             }))
           : [];
-        const dbTableUsers = payload.tableUsers && typeof payload.tableUsers === 'object'
-          ? payload.tableUsers
-          : {};
+        const dbTableUsersByCategory =
+          payload.tableUsersByCategory && typeof payload.tableUsersByCategory === 'object'
+            ? (payload.tableUsersByCategory as TableUsersByCategory)
+            : null;
+        const dbTableUsers =
+          payload.tableUsers && typeof payload.tableUsers === 'object' ? payload.tableUsers : {};
         const hasUsersInDb = dbUsers.length > 0;
-        const hasUserSlotsInDb = Object.values(dbTableUsers).some(
-          (slots) => Array.isArray(slots) && slots.some((slot) => slot !== null && slot !== ''),
-        );
+        const hasUserSlotsInDb = dbTableUsersByCategory
+          ? Object.values(dbTableUsersByCategory).some((tables) =>
+              Object.values(tables ?? {}).some(
+                (slots) => Array.isArray(slots) && slots.some((slot) => slot !== null && slot !== ''),
+              ),
+            )
+          : Object.values(dbTableUsers).some(
+              (slots) => Array.isArray(slots) && slots.some((slot) => slot !== null && slot !== ''),
+            );
 
         if (!hasUsersInDb || !hasUserSlotsInDb) {
           setUsers([...DEFAULT_USERS]);
-          setTableUsers({ ...DEFAULT_TABLE_USERS });
+          setTableUsersByCategory({
+            main: { ...DEFAULT_TABLE_USERS },
+            less: {},
+            vacation: {},
+            completed: {},
+          });
           hasLoadedDbRef.current = true;
           return;
         }
 
-        const mergedTableUsers: TableUserSlots = { ...DEFAULT_TABLE_USERS, ...dbTableUsers };
+        const mergedTableUsersByCategory: TableUsersByCategory = dbTableUsersByCategory
+          ? {
+              main: { ...DEFAULT_TABLE_USERS, ...(dbTableUsersByCategory.main ?? {}) },
+              less: { ...(dbTableUsersByCategory.less ?? {}) },
+              vacation: { ...(dbTableUsersByCategory.vacation ?? {}) },
+              completed: { ...(dbTableUsersByCategory.completed ?? {}) },
+            }
+          : {
+              main: { ...DEFAULT_TABLE_USERS, ...(dbTableUsers as TableUserSlots) },
+              less: {},
+              vacation: {},
+              completed: {},
+            };
         const defaultUserIdsToAdd = new Set<UserId>();
         TABLE_DEFINITIONS.forEach((table) => {
           const title = table.title;
-          const slots = mergedTableUsers[title] ?? [];
+          const slots = mergedTableUsersByCategory.main[title] ?? [];
           const hasAny = slots.some((s) => s !== null && s !== '');
           if (!hasAny && DEFAULT_TABLE_USERS[title]?.length) {
-            mergedTableUsers[title] = [...DEFAULT_TABLE_USERS[title]];
+            mergedTableUsersByCategory.main[title] = [...DEFAULT_TABLE_USERS[title]];
             DEFAULT_TABLE_USERS[title].forEach((id) => id && defaultUserIdsToAdd.add(id));
           }
         });
@@ -1067,7 +1270,7 @@ const TradePage = () => {
         });
 
         setUsers(usersToSet);
-        setTableUsers(mergedTableUsers);
+        setTableUsersByCategory(mergedTableUsersByCategory);
         if (payload.ratioOverrides && typeof payload.ratioOverrides === 'object') {
           setRatioOverrides(payload.ratioOverrides);
         }
@@ -1083,7 +1286,12 @@ const TradePage = () => {
         hasLoadedDbRef.current = true;
       } catch {
         setUsers([...DEFAULT_USERS]);
-        setTableUsers({ ...DEFAULT_TABLE_USERS });
+        setTableUsersByCategory({
+          main: { ...DEFAULT_TABLE_USERS },
+          less: {},
+          vacation: {},
+          completed: {},
+        });
         hasLoadedDbRef.current = true;
       }
     };
@@ -1095,17 +1303,22 @@ const TradePage = () => {
   useEffect(() => {
     if (!hasLoadedDbRef.current) return;
     const idsInTables = new Set<UserId>();
-    Object.values(tableUsers).forEach((slots) => {
-      if (!Array.isArray(slots)) return;
-      slots.forEach((slot) => {
-        if (slot != null && slot !== '') idsInTables.add(slot);
+    Object.values(tableUsersByCategory).forEach((tables) => {
+      Object.values(tables ?? {}).forEach((slots) => {
+        if (!Array.isArray(slots)) return;
+        slots.forEach((slot) => {
+          if (slot != null && slot !== '') idsInTables.add(slot);
+        });
       });
     });
-    setUsers((prev) => {
-      const next = prev.filter((u) => idsInTables.has(u.id));
-      return next.length === prev.length ? prev : next;
-    });
-  }, [tableUsers]);
+    const t = window.setTimeout(() => {
+      setUsers((prev) => {
+        const next = prev.filter((u) => idsInTables.has(u.id));
+        return next.length === prev.length ? prev : next;
+      });
+    }, 0);
+    return () => window.clearTimeout(t);
+  }, [tableUsersByCategory]);
 
   useEffect(() => {
     if (!hasLoadedDbRef.current) return;
@@ -1122,7 +1335,7 @@ const TradePage = () => {
         },
         body: JSON.stringify({
           users,
-          tableUsers,
+          tableUsersByCategory,
           ratioOverrides,
           ratioNotes,
           ratioColors,
@@ -1138,7 +1351,7 @@ const TradePage = () => {
         window.clearTimeout(saveTimerRef.current);
       }
     };
-  }, [users, tableUsers, ratioOverrides, ratioNotes, ratioColors, userHeaderColors]);
+  }, [users, tableUsersByCategory, ratioOverrides, ratioNotes, ratioColors, userHeaderColors]);
 
   useEffect(() => {
     const handleClickOutside = (e: MouseEvent) => {
@@ -1193,6 +1406,19 @@ const TradePage = () => {
       onScroll={handleRootScroll}
     >
       <div className={styles.headerBar}>
+      <div className={styles.categoryTabs}>
+        {CATEGORY_TABS.map((tab) => (
+          <button
+            key={tab.key}
+            type="button"
+            className={`${styles.categoryTabBtn} ${activeCategory === tab.key ? styles.categoryTabBtnActive : ''}`}
+            onClick={() => setActiveCategory(tab.key)}
+          >
+            {tab.label.slice(0, 6)}
+          </button>
+        ))}
+      </div>
+        
         <button
           type="button"
           className={styles.maskContentBtn}
@@ -1211,6 +1437,8 @@ const TradePage = () => {
           <BurgerIcon />
         </button>
       </div>
+
+      
 
       {burgerOpen && (
         <>
@@ -1504,32 +1732,53 @@ const TradePage = () => {
                             >
                               {table.title}
                             </div>
-                            <button
-                              type="button"
-                              className={`${styles.addUserBtn} ${styles.addUserBtnCompact}`}
-                              onClick={() => {
-                                setEditingUserId(null);
-                                setActiveTableForUserModal(table.title);
-                                setUserModalOpen(true);
-                              }}
-                              title="Добавить игрока"
-                              aria-label="Добавить игрока"
-                            >
-                              <PlusIcon />
-                            </button>
+                            {!isEditMode && (
+                              <div className={styles.tableHeaderActionsBlock}>
+                                <button
+                                  type="button"
+                                  className={`${styles.collapseTableBtn} ${isTableCollapsed(table.title) ? styles.collapseTableBtnCollapsed : ''}`}
+                                  onClick={() => toggleTableCollapsed(table.title)}
+                                  title={isTableCollapsed(table.title) ? 'Развернуть список предметов' : 'Свернуть список предметов'}
+                                  aria-label={isTableCollapsed(table.title) ? 'Развернуть таблицу' : 'Свернуть таблицу'}
+                                >
+                                  <ChevronDownIcon />
+                                </button>
+
+                                <button
+                                  type="button"
+                                  className={`${styles.addUserBtn} ${styles.addUserBtnCompact}`}
+                                  onClick={() => {
+                                    setEditingUserId(null);
+                                    setActiveTableForUserModal(table.title);
+                                    setUserModalOpen(true);
+                                  }}
+                                  title="Добавить игрока"
+                                  aria-label="Добавить игрока"
+                                >
+                                  <PlusIcon />
+                                </button>
+                              </div>
+                            )}
                             {isEditMode &&
                               (table.title === 'Carinite (Pure)' ||
-                                table.title === 'DCHS-05 Comp-Board') && (
+                                table.title === 'DCHS-05 Comp-Board' ||
+                                table.title === 'RCMBNT' ||
+                                table.title === 'APEX Pearl (Grade AAA) 🫧' ||
+                                (activeCategory === 'vacation' && table.title === 'Polaris Bits') ||
+                                (activeCategory === 'main' && table.title === 'Ace Helmet 🪖') ||
+                                (activeCategory === 'less' && table.title === 'Valakkar fangs (APEX)') ||
+                                (activeCategory === 'less' && table.title === 'Wikelo Favor') ||
+                                (activeCategory === 'less' && table.title === 'RCMBNT')) && (
                               <button
                                 type="button"
                                 className={styles.sortNamesBtn}
                                 onClick={() => {
-                                  const slots = tableUsers[table.title] ?? [];
+                                  const slots = activeTableUsers[table.title] ?? [];
                                   const orderedTitles = orderedTables.map((t) => t.title);
                                   const { newSlots, movedToTail }: RearrangedSlotsResult = rearrangeSlotsByOtherTables(
                                     table.title,
                                     slots,
-                                    tableUsers,
+                                    activeTableUsers,
                                     orderedTitles,
                                     usersById,
                                   );
@@ -1540,7 +1789,7 @@ const TradePage = () => {
                                     window.alert('Изменений не требуется: столбцы уже совпадают с другими таблицами.');
                                     return;
                                   }
-                                  setTableUsers((prev) => {
+                                  setActiveTableUsers((prev) => {
                                     const next: TableUserSlots = {};
                                     const targetLength = newSlots.length;
 
@@ -1626,11 +1875,7 @@ const TradePage = () => {
                                   ? `${styles.nicknameLinked} ${shadeClass}`
                                   : '';
                                 if (shouldApplyBlue) {
-                                  const locationsByNick = linkedByNicknameLocations[normalizedNickname] ?? [];
-                                  const isFirstOccurrence =
-                                    locationsByNick.length > 0 &&
-                                    locationsByNick[0].tableTitle === table.title &&
-                                    locationsByNick[0].columnIndex === columnIndex;
+                                  // раньше тут были отладочные логи (locationsByNick, isFirstOccurrence)
                                   // if (linkedCountByNick > 1 && isFirstOccurrence) {
                                   //   const locationsStr = locationsByNick
                                   //     .map((loc) => `«${loc.tableTitle}», столбец №${loc.columnIndex + 1}`)
@@ -1650,7 +1895,7 @@ const TradePage = () => {
                                 const headerColorTag = getUserHeaderColorTag(table.title, user.id);
                                 const headerColorClass = getHeaderColorClass(headerColorTag);
                                 const pickerKey = `${table.title}::${user.id}`;
-                                const isHeaderColorPickerOpen = activeHeaderColorPickerKey === pickerKey;
+                                // const isHeaderColorPickerOpen = activeHeaderColorPickerKey === pickerKey;
                                 const openHeaderPaletteAbove = (el: HTMLElement) => {
                                   const rect = el.getBoundingClientRect();
                                   const w = 220;
@@ -1797,8 +2042,9 @@ const TradePage = () => {
                         })}
                       </tr>
                     </thead>
-                    <tbody>
-                      {tableItems.map((item) => {
+                    {!isTableCollapsed(table.title) && (
+                      <tbody>
+                        {tableItems.map((item) => {
                         const isFocusedEditRow =
                           focusedEditRow?.tableTitle === table.title && focusedEditRow?.item === item;
                         return (
@@ -1870,8 +2116,9 @@ const TradePage = () => {
                           })}
                         </tr>
                         );
-                      })}
-                    </tbody>
+                        })}
+                      </tbody>
+                    )}
                   </table>
                 </div>
               </div>
@@ -1905,6 +2152,40 @@ const TradePage = () => {
                 TABLE_DEFINITIONS[0]?.title ||
                 '';
               if (!tableTitle) return;
+
+              const nicknameLower = (data.nickname ?? '').trim().toLowerCase();
+              const matchesInOtherCategories = users.filter(
+                (u) =>
+                  (u.nickname ?? '').trim().toLowerCase() === nicknameLower &&
+                  (u.category ?? 'main') !== activeCategory,
+              );
+              const existingInOtherCategory = matchesInOtherCategories[0] ?? null;
+              if (existingInOtherCategory) {
+                const existingCategories = Array.from(
+                  new Set(
+                    matchesInOtherCategories.map(
+                      (u) => (u.category ?? 'main') as TradeCategory,
+                    ),
+                  ),
+                );
+                const existingCategory =
+                  existingCategories[0] ??
+                  ((existingInOtherCategory.category ?? 'main') as TradeCategory);
+                setCategoryMismatchModal({
+                  tableTitle,
+                  existingUserId: existingInOtherCategory.id,
+                  existingNickname: existingInOtherCategory.nickname,
+                  existingCategory,
+                  existingCategories,
+                  existingLocations: getUserLocations(existingInOtherCategory.id, existingCategory),
+                  pendingData: data,
+                  initialRatios,
+                  initialRatioNotes,
+                  initialRatioColors,
+                });
+                return false;
+              }
+
               const result = addUserToTable(
                 tableTitle,
                 data,
@@ -2015,6 +2296,214 @@ const TradePage = () => {
               >
                 Удалить
               </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {categoryMismatchModal && (
+        <div
+          className={styles.deleteColumnOverlay}
+          onClick={() => setCategoryMismatchModal(null)}
+          role="presentation"
+        >
+          <div
+            className={`${styles.deleteColumnModal} ${styles.categoryMismatchModal}`}
+            onClick={(e) => e.stopPropagation()}
+            role="dialog"
+            aria-labelledby="category-mismatch-title"
+          >
+            <h2 id="category-mismatch-title" className={styles.deleteColumnTitle}>
+              Пользователь уже есть в другой категории
+            </h2>
+            <p className={styles.deleteColumnInfo}>
+              <strong>Ник:</strong> {categoryMismatchModal.existingNickname}
+              <br />
+              <strong>Текущая категория:</strong>{' '}
+              {CATEGORY_TABS.find((t) => t.key === activeCategory)?.label ?? activeCategory}
+              <br />
+              <strong>Найден в категории:</strong>{' '}
+              {CATEGORY_TABS.find((t) => t.key === categoryMismatchModal.existingCategory)?.label ??
+                categoryMismatchModal.existingCategory}
+              <br />
+              <strong>Где находится:</strong>{' '}
+              {categoryMismatchModal.existingLocations.length > 0 ? (
+                <>
+                  {categoryMismatchModal.existingLocations.slice(0, 6).map((loc, idx) => (
+                    <span key={`${loc.tableTitle}-${loc.columnIndex}-${idx}`}>
+                      {idx > 0 ? '; ' : ''}
+                      {`«${loc.tableTitle}», столбец №${loc.columnIndex + 1}`}
+                    </span>
+                  ))}
+                  {categoryMismatchModal.existingLocations.length > 6 &&
+                    ` и ещё ${categoryMismatchModal.existingLocations.length - 6}`}
+                </>
+              ) : (
+                '—'
+              )}
+            </p>
+            <div className={styles.categoryMismatchActions}>
+              <div className={styles.categoryMismatchActionsTopRow}>
+                <button
+                  type="button"
+                  className={styles.deleteColumnBtnSecondary}
+                  onClick={() => {
+                  const m = categoryMismatchModal;
+                  if ((m.existingCategories ?? []).length > 1) {
+                    setCategoryMismatchModal(null);
+                    setCategoryJumpModal({
+                      tableTitle: m.tableTitle,
+                      nickname: m.existingNickname,
+                      categories: m.existingCategories,
+                      pendingData: m.pendingData,
+                      initialRatios: m.initialRatios,
+                      initialRatioNotes: m.initialRatioNotes,
+                      initialRatioColors: m.initialRatioColors,
+                    });
+                    return;
+                  }
+
+                  setCategoryMismatchModal(null);
+                  const result = addUserToTable(
+                    m.tableTitle,
+                    m.pendingData,
+                    m.initialRatios,
+                    m.initialRatioNotes,
+                    m.initialRatioColors,
+                    m.existingCategory,
+                  );
+                  if (result && result.reason === 'similar_nickname') return;
+                  setLastCreatedDiscord(m.pendingData.discordNickname ?? '');
+                  setLastCreatedAccountLink(m.pendingData.accountLink ?? '');
+                  setActiveCategory(m.existingCategory);
+                  }}
+                >
+                  Переместить в найденную категорию
+                </button>
+                <button
+                  type="button"
+                  className={styles.deleteColumnBtnPrimary}
+                  onClick={() => {
+                  const m = categoryMismatchModal;
+                  setCategoryMismatchModal(null);
+
+                  // 1) перенос пользователя в текущую категорию
+                  setUsers((prev) =>
+                    prev.map((u) =>
+                      u.id === m.existingUserId
+                        ? {
+                            ...u,
+                            nickname: (m.pendingData.nickname ?? '').trim(),
+                            discordNickname:
+                              (m.pendingData.discordNickname ?? '').trim() !== ''
+                                ? (m.pendingData.discordNickname ?? '').trim()
+                                : (u.discordNickname ?? ''),
+                            accountLink:
+                              (m.pendingData.accountLink ?? '').trim() !== ''
+                                ? (m.pendingData.accountLink ?? '').trim()
+                                : (u.accountLink ?? ''),
+                            category: activeCategory,
+                          }
+                        : u,
+                    ),
+                  );
+
+                  // 2) перенести все появления этого userId в текущую категорию (в хвост),
+                  // одновременно удалив его из остальных категорий.
+                  moveUserToCategoryTailFromAllCategories(m.existingUserId, activeCategory);
+
+                  // 3) применить введённые начальные данные для текущей таблицы (если были)
+                  applyInitialDataForUserInTable(
+                    m.tableTitle,
+                    m.existingUserId,
+                    m.initialRatios,
+                    m.initialRatioNotes,
+                    m.initialRatioColors,
+                  );
+
+                  setLastCreatedDiscord(m.pendingData.discordNickname ?? '');
+                  setLastCreatedAccountLink(m.pendingData.accountLink ?? '');
+
+                  // закрыть модалку создания
+                  setUserModalOpen(false);
+                  setEditingUserId(null);
+                  setActiveTableForUserModal(null);
+                  }}
+                >
+                  Перенести все повторения в текущую категорию (в конец)
+                </button>
+              </div>
+              <div className={styles.categoryMismatchActionsBottomRow}>
+                <button
+                  type="button"
+                  className={styles.deleteColumnBtnSecondary}
+                  onClick={() => setCategoryMismatchModal(null)}
+                >
+                  Отмена (вернуться к созданию)
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {categoryJumpModal && (
+        <div
+          className={styles.deleteColumnOverlay}
+          onClick={() => setCategoryJumpModal(null)}
+          role="presentation"
+        >
+          <div
+            className={`${styles.deleteColumnModal} ${styles.categoryMismatchModal}`}
+            onClick={(e) => e.stopPropagation()}
+            role="dialog"
+            aria-labelledby="category-jump-title"
+          >
+            <h2 id="category-jump-title" className={styles.deleteColumnTitle}>
+              В какую категорию хотите перейти после добавления?
+            </h2>
+            <p className={styles.deleteColumnInfo}>
+              Ник <strong>{categoryJumpModal.nickname}</strong> найден в нескольких категориях.
+              <br />
+              Выберите категорию — пользователь будет добавлен туда, и вкладка переключится.
+            </p>
+            <div className={styles.categoryMismatchActions}>
+              <div className={styles.categoryMismatchActionsTopRow}>
+                {categoryJumpModal.categories.map((cat) => (
+                  <button
+                    key={cat}
+                    type="button"
+                    className={styles.deleteColumnBtnSecondary}
+                    onClick={() => {
+                      const m = categoryJumpModal;
+                      setCategoryJumpModal(null);
+                      const result = addUserToTable(
+                        m.tableTitle,
+                        m.pendingData,
+                        m.initialRatios,
+                        m.initialRatioNotes,
+                        m.initialRatioColors,
+                        cat,
+                      );
+                      if (result && result.reason === 'similar_nickname') return;
+                      setLastCreatedDiscord(m.pendingData.discordNickname ?? '');
+                      setLastCreatedAccountLink(m.pendingData.accountLink ?? '');
+                      setActiveCategory(cat);
+                    }}
+                  >
+                    {CATEGORY_TABS.find((t) => t.key === cat)?.label ?? cat}
+                  </button>
+                ))}
+              </div>
+              <div className={styles.categoryMismatchActionsBottomRow}>
+                <button
+                  type="button"
+                  className={styles.deleteColumnBtnSecondary}
+                  onClick={() => setCategoryJumpModal(null)}
+                >
+                  Отмена
+                </button>
+              </div>
             </div>
           </div>
         </div>
@@ -2143,9 +2632,10 @@ const TradePage = () => {
                   type="button"
                   className={`${styles.moveCategoryOption} ${currentCategory === tab.key ? styles.moveCategoryOptionActive : ''}`}
                   onClick={() => {
-                    setUsers((prev) =>
-                      prev.map((u) => (u.id === userId ? { ...u, category: tab.key } : u)),
-                    );
+                    // ВАЖНО: при смене категории нужно переносить и слоты таблиц,
+                    // иначе пользователь "пропадает" из текущей категории и не появляется в целевой.
+                    setUsers((prev) => prev.map((u) => (u.id === userId ? { ...u, category: tab.key } : u)));
+                    moveUserToCategoryTailFromAllCategories(userId, tab.key);
                     setActiveMoveCategoryKey(null);
                     setMoveCategoryDropdownPosition(null);
                   }}

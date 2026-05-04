@@ -53,12 +53,10 @@ const getRatioColorClass = (tag: string): string => {
 
 const UserModal = ({ user, tableContext, defaultDiscordNickname, defaultAccountLink, onSave, onClose }: Props) => {
   const [nickname, setNickname] = useState(() => user?.nickname ?? '');
-  const [discordNickname, setDiscordNickname] = useState(() =>
-    user?.discordNickname ?? defaultDiscordNickname ?? '',
-  );
-  const [accountLink, setAccountLink] = useState(() =>
-    user?.accountLink ?? defaultAccountLink ?? '',
-  );
+  // При создании нового пользователя поля должны быть пустыми,
+  // но при сохранении пустые значения будут заменены на default* (если переданы).
+  const [discordNickname, setDiscordNickname] = useState(() => user?.discordNickname ?? '');
+  const [accountLink, setAccountLink] = useState(() => user?.accountLink ?? '');
   const [tableRatios, setTableRatios] = useState<Record<string, string>>(() =>
     tableContext?.items ? Object.fromEntries(tableContext.items.map((item) => [item, ''])) : {},
   );
@@ -73,6 +71,7 @@ const UserModal = ({ user, tableContext, defaultDiscordNickname, defaultAccountL
   const [colorPalettePosition, setColorPalettePosition] = useState<{ top: number; left: number } | null>(null);
   const [activeNoteItem, setActiveNoteItem] = useState<string | null>(null);
   const [noteEditValue, setNoteEditValue] = useState('');
+  const [useDefaultsOnEmpty, setUseDefaultsOnEmpty] = useState(false);
   const modalRef = useRef<HTMLDivElement>(null);
   const nicknameInputRef = useRef<HTMLInputElement>(null);
   const colorBtnRefs = useRef<Record<string, HTMLButtonElement | null>>({});
@@ -82,6 +81,8 @@ const UserModal = ({ user, tableContext, defaultDiscordNickname, defaultAccountL
   const ratioInputRefs = useRef<(HTMLInputElement | null)[]>([]);
 
   const isCreate = user === null;
+  const hasDefaults =
+    ((defaultDiscordNickname ?? '').trim() !== '') || ((defaultAccountLink ?? '').trim() !== '');
 
   useEffect(() => {
     if (isCreate) {
@@ -146,11 +147,15 @@ const UserModal = ({ user, tableContext, defaultDiscordNickname, defaultAccountL
     const resolvedDiscord =
       discordNickname.trim() !== ''
         ? discordNickname.trim()
-        : (defaultDiscordNickname ?? '').trim();
+        : useDefaultsOnEmpty
+          ? (defaultDiscordNickname ?? '').trim()
+          : '';
     const resolvedAccountLink =
       accountLink.trim() !== ''
         ? accountLink.trim()
-        : (defaultAccountLink ?? '').trim();
+        : useDefaultsOnEmpty
+          ? (defaultAccountLink ?? '').trim()
+          : '';
     const shouldClose = onSave(
       {
         nickname: trimmedNick,
@@ -233,6 +238,18 @@ const UserModal = ({ user, tableContext, defaultDiscordNickname, defaultAccountL
               onChange={(e) => setAccountLink(e.target.value)}
             />
           </div>
+          {isCreate && hasDefaults && (
+            <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginTop: '0.25rem' }}>
+              <input
+                type="checkbox"
+                checked={useDefaultsOnEmpty}
+                onChange={(e) => setUseDefaultsOnEmpty(e.target.checked)}
+              />
+              <span style={{ fontSize: '0.85rem', color: '#374151', fontWeight: 600 }}>
+                Если поля пустые — подставлять прошлые Discord/ссылку
+              </span>
+            </label>
+          )}
           {showTableFields && (
             <div className={styles.tableSection}>
               <div className={styles.tableSectionTitle}>
