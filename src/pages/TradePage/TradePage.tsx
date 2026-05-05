@@ -1761,9 +1761,15 @@ const TradePage = () => {
                             )}
                             {isEditMode &&
                               (table.title === 'Carinite (Pure)' ||
-                                table.title === 'DCHS-05 Comp-Board' ||
                                 table.title === 'RCMBNT' ||
+                                table.title === 'Valakkar fangs (APEX)' ||
+                                table.title === 'DCHS-05 Comp-Board' ||
+                                table.title === 'Polaris Bits' ||
                                 table.title === 'APEX Pearl (Grade AAA) 🫧' ||
+                                table.title === 'Wikelo Favor' ||
+                                table.title === 'UEE 6th (Pristine) 🎖️' ||
+                                table.title === 'Ace Helmet 🪖' ||
+                                table.title === 'ASD Drive' ||
                                 (activeCategory === 'vacation' && table.title === 'Polaris Bits') ||
                                 (activeCategory === 'main' && table.title === 'Ace Helmet 🪖') ||
                                 (activeCategory === 'less' && table.title === 'Valakkar fangs (APEX)') ||
